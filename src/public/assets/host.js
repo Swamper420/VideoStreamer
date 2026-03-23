@@ -1,5 +1,7 @@
 import {
+  attachStreamTracks,
   byId,
+  createDisplayMediaOptions,
   createRtcConfiguration,
   postJson,
   preferredVideoCodecs,
@@ -143,26 +145,11 @@ function describeCodecPreference() {
     'Hardware acceleration is used when the browser and GPU support it.';
 }
 
-function attachTracks(peerConnection, stream) {
-  const codecs = preferredVideoCodecs();
-
-  for (const track of stream.getVideoTracks()) {
-    const transceiver = peerConnection.addTransceiver(track, {
-      direction: 'sendonly',
-      streams: [stream],
-    });
-
-    if (codecs.length > 0) {
-      transceiver.setCodecPreferences(codecs);
-    }
-  }
-}
-
 async function handleViewerJoined({ viewerId, viewerName }) {
   setStatus(statusText, `${viewerName} joined. Creating an offer.`);
 
   const peerState = getOrCreatePeerState(viewerId);
-  attachTracks(peerState.peerConnection, displayStream);
+  attachStreamTracks(peerState.peerConnection, displayStream);
 
   const offer = await peerState.peerConnection.createOffer();
   await peerState.peerConnection.setLocalDescription(offer);
@@ -216,15 +203,7 @@ async function startSession() {
     hostId = session.hostId;
     controlToken = session.controlToken;
 
-    displayStream = await navigator.mediaDevices.getDisplayMedia({
-      video: {
-        frameRate: {
-          ideal: 60,
-          max: 60,
-        },
-      },
-      audio: false,
-    });
+    displayStream = await navigator.mediaDevices.getDisplayMedia(createDisplayMediaOptions());
 
     updateCaptureBounds(displayStream);
     hostPreview.srcObject = displayStream;
@@ -235,7 +214,7 @@ async function startSession() {
     viewerLinkInput.value = inviteUrl.toString();
     codecSummary.textContent = describeCodecPreference();
     sessionCard.classList.remove('hidden');
-    setStatus(statusText, 'Capture is live. Share the invite link with viewers.');
+    setStatus(statusText, 'Capture is live with screen audio when the browser provides it. Share the invite link with viewers.');
   } catch (error) {
     setStatus(statusText, error instanceof Error ? error.message : 'Unable to start the session.');
     startButton.disabled = false;
