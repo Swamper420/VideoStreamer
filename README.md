@@ -6,7 +6,7 @@ and prefers AV1 with H.264 fallback when the browser exposes those codecs.
 
 ## Features
 
-- Low-latency WebRTC video streaming from one host to multiple viewers
+- Low-latency WebRTC screen streaming (with audio when supported) from one host to multiple viewers
 - Viewer mouse, wheel, click, and keyboard input forwarded back to the host
 - AV1-first codec preference with H.264 fallback
 - Browser/OS hardware acceleration on supported GPUs for both encoding and decoding
@@ -21,7 +21,7 @@ and prefers AV1 with H.264 fallback when the browser exposes those codecs.
 npm start
 ```
 
-Open `http://localhost:3000/host` on the host machine, create a session, allow screen capture, and share the
+Open `http://localhost:3000/host` on the host machine, create a session, allow screen/audio capture, and share the
 generated client link with viewers.
 
 Host input control is executed by the Node.js process running on the host machine. Linux hosts need `xdotool`

@@ -49,6 +49,18 @@ export function createRtcConfiguration() {
   };
 }
 
+export function createDisplayMediaOptions() {
+  return {
+    video: {
+      frameRate: {
+        ideal: 60,
+        max: 60,
+      },
+    },
+    audio: true,
+  };
+}
+
 export function preferredVideoCodecs() {
   const capabilities = RTCRtpSender.getCapabilities?.('video');
   if (!capabilities?.codecs) {
@@ -56,4 +68,19 @@ export function preferredVideoCodecs() {
   }
 
   return capabilities.codecs.filter((codec) => codec.mimeType === 'video/AV1' || codec.mimeType === 'video/H264');
+}
+
+export function attachStreamTracks(peerConnection, stream) {
+  const codecs = preferredVideoCodecs();
+
+  for (const track of stream.getTracks()) {
+    const transceiver = peerConnection.addTransceiver(track, {
+      direction: 'sendonly',
+      streams: [stream],
+    });
+
+    if (track.kind === 'video' && codecs.length > 0) {
+      transceiver.setCodecPreferences(codecs);
+    }
+  }
 }
