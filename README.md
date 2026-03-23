@@ -6,7 +6,7 @@ and prefers AV1 with H.264 fallback when the browser exposes those codecs.
 
 ## Features
 
-- Low-latency WebRTC screen and audio streaming from one host to multiple viewers
+- Low-latency WebRTC screen streaming (with audio when supported) from one host to multiple viewers
 - Viewer mouse, wheel, click, and keyboard input forwarded back to the host
 - AV1-first codec preference with H.264 fallback
 - Browser/OS hardware acceleration on supported GPUs for both encoding and decoding

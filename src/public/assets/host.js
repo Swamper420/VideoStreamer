@@ -214,7 +214,7 @@ async function startSession() {
     viewerLinkInput.value = inviteUrl.toString();
     codecSummary.textContent = describeCodecPreference();
     sessionCard.classList.remove('hidden');
-    setStatus(statusText, 'Capture is live with screen audio when the browser provides it. Share the invite link with viewers.');
+    setStatus(statusText, 'Capture is live. Share the invite link with viewers.');
   } catch (error) {
     setStatus(statusText, error instanceof Error ? error.message : 'Unable to start the session.');
     startButton.disabled = false;
