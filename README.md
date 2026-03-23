@@ -28,6 +28,21 @@ Host input control is executed by the Node.js process running on the host machin
 installed, and Windows hosts use PowerShell. Running the app directly on the host OS is recommended when you need
 remote control support.
 
+#### Getting host input working
+
+- Start the server on the same machine that should receive remote mouse and keyboard input.
+- Linux hosts need `xdotool` installed before starting `npm start`. On Debian or Ubuntu:
+
+  ```bash
+  sudo apt update
+  sudo apt install xdotool
+  ```
+
+- Windows hosts use the built-in PowerShell executable. If `powershell.exe` is unavailable in `PATH`, install or
+  re-enable Windows PowerShell before starting the server.
+- When running inside Docker, input forwarding still has to be executed by a process on the host OS. Use the Node.js
+  setup above when you want viewers to control the host machine.
+
 ### Docker
 
 ```bash
