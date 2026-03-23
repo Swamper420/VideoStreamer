@@ -2,12 +2,14 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createInputController } from './input-controller.mjs';
 import { createSessionStore } from './session-store.mjs';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
 const MAX_REQUEST_BYTES = 256 * 1024;
 const publicRoot = fileURLToPath(new URL('../public/', import.meta.url));
 const store = createSessionStore();
+const inputController = createInputController();
 
 const contentTypes = new Map([
   ['.css', 'text/css; charset=utf-8'],
@@ -98,7 +100,11 @@ function withErrorHandling(handler) {
       await handler(request, response, url);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unexpected server error.';
-      const statusCode = message.includes('not found') || message.includes('Participant') ? 404 : 400;
+      const statusCode = message.includes('authorization')
+        ? 403
+        : message.includes('not found') || message.includes('Participant')
+          ? 404
+          : 400;
       sendJson(response, statusCode, { error: message });
     }
   };
@@ -130,6 +136,20 @@ const routes = [
       const body = await readJsonBody(request);
       const participant = store.addViewer(sessionId, { viewerName: body.viewerName });
       sendJson(response, 201, participant);
+    }),
+  },
+  {
+    method: 'POST',
+    pattern: /^\/api\/sessions\/([^/]+)\/controls$/,
+    handler: withErrorHandling(async (request, response, url) => {
+      const sessionId = url.pathname.split('/')[3];
+      const body = await readJsonBody(request);
+      store.authorizeHostControl(sessionId, {
+        hostId: body.hostId,
+        controlToken: body.controlToken,
+      });
+      const control = await inputController.execute(body.control);
+      sendJson(response, 202, { ok: true, control });
     }),
   },
   {

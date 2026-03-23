@@ -2,6 +2,11 @@ export function byId(id) {
   return document.getElementById(id);
 }
 
+export const defaultIceServers = Object.freeze([
+  Object.freeze({ urls: 'stun:stun.l.google.com:19302' }),
+  Object.freeze({ urls: 'stun:stun1.l.google.com:19302' }),
+]);
+
 export async function postJson(path, payload) {
   const response = await fetch(path, {
     method: 'POST',
@@ -36,6 +41,12 @@ export function subscribeToEvents(sessionId, participantId, onSignal, onViewerJo
 
 export function sendSignal(sessionId, message) {
   return postJson(`/api/sessions/${encodeURIComponent(sessionId)}/messages`, message);
+}
+
+export function createRtcConfiguration() {
+  return {
+    iceServers: defaultIceServers.map((iceServer) => ({ ...iceServer })),
+  };
 }
 
 export function preferredVideoCodecs() {

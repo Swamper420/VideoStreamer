@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
 
 const MAX_MESSAGE_QUEUE = 64;
 
@@ -51,6 +51,20 @@ function sanitizeMessage(message) {
 export function createSessionStore() {
   const sessions = new Map();
 
+  function tokensMatch(expectedToken, actualToken) {
+    if (typeof expectedToken !== 'string' || typeof actualToken !== 'string') {
+      return false;
+    }
+
+    const expectedBuffer = Buffer.from(expectedToken);
+    const actualBuffer = Buffer.from(actualToken);
+    if (expectedBuffer.length !== actualBuffer.length) {
+      return false;
+    }
+
+    return timingSafeEqual(expectedBuffer, actualBuffer);
+  }
+
   function getSessionOrThrow(sessionId) {
     const session = sessions.get(sessionId);
     if (!session) {
@@ -96,6 +110,7 @@ export function createSessionStore() {
         id: sessionId,
         createdAt: new Date().toISOString(),
         hostId: host.id,
+        controlToken: randomUUID(),
         participants: new Map([[host.id, host]]),
       };
 
@@ -104,6 +119,7 @@ export function createSessionStore() {
         sessionId,
         hostId: host.id,
         hostName: host.name,
+        controlToken: session.controlToken,
       };
     },
 
@@ -168,6 +184,18 @@ export function createSessionStore() {
 
       sendEvent(recipient, 'signal', routedMessage);
       return routedMessage;
+    },
+
+    authorizeHostControl(sessionId, { hostId, controlToken } = {}) {
+      const session = getSessionOrThrow(sessionId);
+      if (session.hostId !== hostId || !tokensMatch(session.controlToken, controlToken)) {
+        throw new Error('Host control authorization failed.');
+      }
+
+      return {
+        sessionId: session.id,
+        hostId: session.hostId,
+      };
     },
   };
 }
