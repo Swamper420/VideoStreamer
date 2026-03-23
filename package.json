@@ -1,0 +1,22 @@
+{
+  "name": "videostreamer",
+  "version": "1.0.0",
+  "description": "Low-latency multi-viewer video streaming with forwarded client input.",
+  "main": "src/server/index.mjs",
+  "scripts": {
+    "start": "node src/server/index.mjs",
+    "test": "node --test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Swamper420/VideoStreamer.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "bugs": {
+    "url": "https://github.com/Swamper420/VideoStreamer/issues"
+  },
+  "homepage": "https://github.com/Swamper420/VideoStreamer#readme"
+}
