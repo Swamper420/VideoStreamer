@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>VideoStreamer Client</title>
+    <link rel="stylesheet" href="/assets/app.css" />
+  </head>
+  <body>
+    <main class="shell shell-wide">
+      <section class="panel panel-stack">
+        <div class="row">
+          <div>
+            <p class="eyebrow">Client</p>
+            <h1>Join a live stream</h1>
+          </div>
+          <a class="button button-secondary" href="/">Home</a>
+        </div>
+        <label class="field">
+          <span>Viewer name</span>
+          <input id="viewer-name" type="text" value="Viewer" maxlength="80" />
+        </label>
+        <label class="field">
+          <span>Session ID</span>
+          <input id="session-id" type="text" maxlength="80" />
+        </label>
+        <button id="join-session" class="button">Join session</button>
+        <p id="client-status" class="status">Waiting for a session.</p>
+      </section>
+
+      <section class="video-layout">
+        <section class="panel panel-stack">
+          <p class="eyebrow">Live stream</p>
+          <h2>Viewer video</h2>
+          <video id="viewer-video" autoplay playsinline controls></video>
+        </section>
+
+        <section class="panel panel-stack">
+          <p class="eyebrow">Input forwarding</p>
+          <h2>Controls</h2>
+          <p class="status">
+            Click inside the video, then use mouse movement, clicks, wheel, and keyboard input to forward control
+            messages back to the host.
+          </p>
+        </section>
+      </section>
+    </main>
+    <script type="module" src="/assets/client.js"></script>
+  </body>
+</html>
