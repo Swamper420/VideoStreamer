@@ -79,6 +79,19 @@ async function serveStaticAsset(requestPath, response) {
   }
 }
 
+function resolvePublicPath(requestPath) {
+  if (requestPath === '/') {
+    return '/index.html';
+  }
+
+  const routeMap = new Map([
+    ['/host', '/host.html'],
+    ['/client', '/client.html'],
+  ]);
+
+  return routeMap.get(requestPath) ?? requestPath;
+}
+
 function withErrorHandling(handler) {
   return async (request, response, url) => {
     try {
@@ -165,8 +178,11 @@ const server = createServer(async (request, response) => {
     return;
   }
 
-  if (request.method === 'GET' && (url.pathname === '/' || url.pathname.startsWith('/host') || url.pathname.startsWith('/client') || url.pathname.startsWith('/assets/'))) {
-    await serveStaticAsset(url.pathname === '/host' ? '/host.html' : url.pathname === '/client' ? '/client.html' : url.pathname, response);
+  if (
+    request.method === 'GET' &&
+    (url.pathname === '/' || url.pathname.startsWith('/host') || url.pathname.startsWith('/client') || url.pathname.startsWith('/assets/'))
+  ) {
+    await serveStaticAsset(resolvePublicPath(url.pathname), response);
     return;
   }
 
