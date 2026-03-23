@@ -17,6 +17,7 @@ const codecSummary = byId('codec-summary');
 const hostPreview = byId('host-preview');
 const viewerCount = byId('viewer-count');
 const inputLog = byId('input-log');
+const MALFORMED_CONTROL_MESSAGE = 'Received malformed viewer control input.';
 
 let sessionId = '';
 let hostId = '';
@@ -98,13 +99,14 @@ async function forwardControlToHostMachine(rawControl) {
 
   try {
     control = JSON.parse(rawControl);
-  } catch {
-    setStatus(statusText, 'Received malformed viewer control input.');
+  } catch (error) {
+    console.error('Unable to parse viewer control payload.', error);
+    setStatus(statusText, MALFORMED_CONTROL_MESSAGE);
     return;
   }
 
   if (!control || typeof control !== 'object') {
-    setStatus(statusText, 'Received malformed viewer control input.');
+    setStatus(statusText, MALFORMED_CONTROL_MESSAGE);
     return;
   }
 

@@ -9,5 +9,5 @@ test('createRtcConfiguration returns STUN servers for remote connectivity', () =
     iceServers: defaultIceServers.map((iceServer) => ({ ...iceServer })),
   });
   assert.notEqual(configuration.iceServers, defaultIceServers);
-  assert.equal(configuration.iceServers.length >= 2, true);
+  assert.equal(configuration.iceServers.length, 2);
 });

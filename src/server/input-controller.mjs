@@ -4,7 +4,19 @@ import { promisify } from 'node:util';
 const execFileAsync = promisify(execFile);
 const MAX_DISPLAY_DIMENSION = 16_384;
 const MAX_SCROLL_STEPS = 12;
-const MAX_KEY_LENGTH = 64;
+const MAX_KEY_IDENTIFIER_LENGTH = 64;
+const WINDOWS_SEND_KEYS_SPECIAL_CHARACTERS = '+^%~(){}';
+const XDOTOOL_SCROLL_LEFT_BUTTON = '6';
+const XDOTOOL_SCROLL_RIGHT_BUTTON = '7';
+const XDOTOOL_SCROLL_UP_BUTTON = '4';
+const XDOTOOL_SCROLL_DOWN_BUTTON = '5';
+const WINDOWS_MOUSE_EVENT_WHEEL = 0x0800;
+const WINDOWS_MOUSE_EVENT_HWHEEL = 0x1000;
+const WINDOWS_MOUSE_EVENT_FLAGS = new Map([
+  [0, { down: 0x0002, up: 0x0004 }],
+  [1, { down: 0x0020, up: 0x0040 }],
+  [2, { down: 0x0008, up: 0x0010 }],
+]);
 
 const specialLinuxKeys = new Map([
   ['ArrowDown', 'Down'],
@@ -42,7 +54,7 @@ const specialWindowsKeys = new Map([
 
 function toFiniteNumber(value, field, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } = {}) {
   if (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max) {
-    throw new Error(`${field} must be a finite number.`);
+    throw new Error(`${field} must be a finite number between ${min} and ${max}.`);
   }
 
   return value;
@@ -51,7 +63,7 @@ function toFiniteNumber(value, field, { min = Number.NEGATIVE_INFINITY, max = Nu
 function toPositiveInteger(value, field) {
   const numericValue = toFiniteNumber(value, field, { min: 1, max: MAX_DISPLAY_DIMENSION });
   if (!Number.isInteger(numericValue)) {
-    throw new Error(`${field} must be an integer.`);
+    throw new Error(`${field} must be a positive integer.`);
   }
 
   return numericValue;
@@ -63,8 +75,8 @@ function sanitizeKeyValue(value, field) {
   }
 
   const trimmed = value.trim();
-  if (trimmed.length > MAX_KEY_LENGTH) {
-    throw new Error(`${field} must be ${MAX_KEY_LENGTH} characters or fewer.`);
+  if (trimmed.length > MAX_KEY_IDENTIFIER_LENGTH) {
+    throw new Error(`${field} must be ${MAX_KEY_IDENTIFIER_LENGTH} characters or fewer.`);
   }
 
   return trimmed;
@@ -111,7 +123,7 @@ function mapLinuxKey({ code, key }) {
 }
 
 function escapeWindowsCharacter(character) {
-  if ('+^%~(){}'.includes(character)) {
+  if (WINDOWS_SEND_KEYS_SPECIAL_CHARACTERS.includes(character)) {
     return `{${character}}`;
   }
 
@@ -123,7 +135,19 @@ function escapeWindowsCharacter(character) {
     return '{]}';
   }
 
+  if (character === '\'') {
+    return escapePowerShellSingleQuotedCharacter(character);
+  }
+
   return character;
+}
+
+function escapePowerShellSingleQuotedCharacter(character) {
+  if (character !== '\'') {
+    throw new Error('PowerShell single-quote escaping only supports single quote characters.');
+  }
+
+  return character.repeat(2);
 }
 
 function mapWindowsKey({ code, key }) {
@@ -239,14 +263,24 @@ export function buildLinuxCommands(control) {
     if (horizontalSteps > 0) {
       commands.push({
         file: 'xdotool',
-        args: ['click', '--repeat', String(horizontalSteps), control.payload.deltaX > 0 ? '7' : '6'],
+        args: [
+          'click',
+          '--repeat',
+          String(horizontalSteps),
+          control.payload.deltaX > 0 ? XDOTOOL_SCROLL_RIGHT_BUTTON : XDOTOOL_SCROLL_LEFT_BUTTON,
+        ],
       });
     }
 
     if (verticalSteps > 0) {
       commands.push({
         file: 'xdotool',
-        args: ['click', '--repeat', String(verticalSteps), control.payload.deltaY > 0 ? '5' : '4'],
+        args: [
+          'click',
+          '--repeat',
+          String(verticalSteps),
+          control.payload.deltaY > 0 ? XDOTOOL_SCROLL_DOWN_BUTTON : XDOTOOL_SCROLL_UP_BUTTON,
+        ],
       });
     }
 
@@ -306,12 +340,7 @@ export function buildWindowsCommands(control) {
   }
 
   if (control.type === 'click') {
-    const flagMap = new Map([
-      [0, { down: 0x0002, up: 0x0004 }],
-      [1, { down: 0x0020, up: 0x0040 }],
-      [2, { down: 0x0008, up: 0x0010 }],
-    ]);
-    const flags = flagMap.get(control.payload.button);
+    const flags = WINDOWS_MOUSE_EVENT_FLAGS.get(control.payload.button);
     return [
       {
         file: 'powershell.exe',
@@ -337,7 +366,10 @@ export function buildWindowsCommands(control) {
           '-NoProfile',
           '-NonInteractive',
           '-Command',
-          createWindowsMouseScript(0x1000, (control.payload.deltaX > 0 ? 1 : -1) * horizontalSteps * 120),
+          createWindowsMouseScript(
+            WINDOWS_MOUSE_EVENT_HWHEEL,
+            (control.payload.deltaX > 0 ? 1 : -1) * horizontalSteps * 120,
+          ),
         ],
       });
     }
@@ -349,7 +381,10 @@ export function buildWindowsCommands(control) {
           '-NoProfile',
           '-NonInteractive',
           '-Command',
-          createWindowsMouseScript(0x0800, (control.payload.deltaY > 0 ? -1 : 1) * verticalSteps * 120),
+          createWindowsMouseScript(
+            WINDOWS_MOUSE_EVENT_WHEEL,
+            (control.payload.deltaY > 0 ? -1 : 1) * verticalSteps * 120,
+          ),
         ],
       });
     }
