@@ -11,6 +11,7 @@ and prefers AV1 with H.264 fallback when the browser exposes those codecs.
 - AV1-first codec preference with H.264 fallback
 - Browser/OS hardware acceleration on supported GPUs for both encoding and decoding
 - Simple deployment with either Node.js or Docker
+- Public STUN discovery enabled by default for viewers connecting from outside the local network
 
 ## Quick start
 
@@ -22,6 +23,10 @@ npm start
 
 Open `http://localhost:3000/host` on the host machine, create a session, allow screen capture, and share the
 generated client link with viewers.
+
+Host input control is executed by the Node.js process running on the host machine. Linux hosts need `xdotool`
+installed, and Windows hosts use PowerShell. Running the app directly on the host OS is recommended when you need
+remote control support.
 
 ### Docker
 

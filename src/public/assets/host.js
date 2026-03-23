@@ -1,4 +1,12 @@
-import { byId, postJson, preferredVideoCodecs, sendSignal, setStatus, subscribeToEvents } from './common.js';
+import {
+  byId,
+  createRtcConfiguration,
+  postJson,
+  preferredVideoCodecs,
+  sendSignal,
+  setStatus,
+  subscribeToEvents,
+} from './common.js';
 
 const hostNameInput = byId('host-name');
 const startButton = byId('start-session');
@@ -9,10 +17,13 @@ const codecSummary = byId('codec-summary');
 const hostPreview = byId('host-preview');
 const viewerCount = byId('viewer-count');
 const inputLog = byId('input-log');
+const MALFORMED_CONTROL_MESSAGE = 'Received malformed viewer control input.';
 
 let sessionId = '';
 let hostId = '';
+let controlToken = '';
 let displayStream = null;
+let captureBounds = { width: 0, height: 0 };
 const peers = new Map();
 
 function getOrCreatePeerState(viewerId) {
@@ -21,7 +32,7 @@ function getOrCreatePeerState(viewerId) {
     return existingPeer;
   }
 
-  const peerConnection = new RTCPeerConnection();
+  const peerConnection = new RTCPeerConnection(createRtcConfiguration());
   const inputChannel = peerConnection.createDataChannel('viewer-input');
   const peerState = {
     peerConnection,
@@ -32,6 +43,7 @@ function getOrCreatePeerState(viewerId) {
 
   inputChannel.addEventListener('message', (event) => {
     prependInputEntry(`Viewer ${viewerId.slice(0, 8)} sent ${event.data}`);
+    void forwardControlToHostMachine(event.data);
   });
 
   peerConnection.addEventListener('icecandidate', (event) => {
@@ -61,6 +73,63 @@ function prependInputEntry(message) {
 
   while (inputLog.childElementCount > 8) {
     inputLog.lastElementChild.remove();
+  }
+}
+
+function updateCaptureBounds(stream) {
+  const [track] = stream.getVideoTracks();
+  if (!track) {
+    captureBounds = { width: 0, height: 0 };
+    return;
+  }
+
+  const settings = track.getSettings();
+  captureBounds = {
+    width: typeof settings.width === 'number' ? settings.width : 0,
+    height: typeof settings.height === 'number' ? settings.height : 0,
+  };
+}
+
+async function forwardControlToHostMachine(rawControl) {
+  if (!sessionId || !hostId || !controlToken) {
+    return;
+  }
+
+  let control;
+
+  try {
+    control = JSON.parse(rawControl);
+  } catch (error) {
+    console.error('Unable to parse viewer control payload.', error);
+    setStatus(statusText, MALFORMED_CONTROL_MESSAGE);
+    return;
+  }
+
+  if (!control || typeof control !== 'object') {
+    setStatus(statusText, MALFORMED_CONTROL_MESSAGE);
+    return;
+  }
+
+  const payload = control.payload && typeof control.payload === 'object'
+    ? {
+        ...control.payload,
+        screenWidth: captureBounds.width,
+        screenHeight: captureBounds.height,
+      }
+    : control.payload;
+
+  try {
+    await postJson(`/api/sessions/${encodeURIComponent(sessionId)}/controls`, {
+      hostId,
+      controlToken,
+      control: {
+        ...control,
+        payload,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unable to apply viewer input on the host machine.';
+    setStatus(statusText, message);
   }
 }
 
@@ -145,6 +214,7 @@ async function startSession() {
 
     sessionId = session.sessionId;
     hostId = session.hostId;
+    controlToken = session.controlToken;
 
     displayStream = await navigator.mediaDevices.getDisplayMedia({
       video: {
@@ -156,6 +226,7 @@ async function startSession() {
       audio: false,
     });
 
+    updateCaptureBounds(displayStream);
     hostPreview.srcObject = displayStream;
     subscribeToEvents(sessionId, hostId, handleSignal, handleViewerJoined);
 

@@ -1,4 +1,4 @@
-import { byId, postJson, sendSignal, setStatus, subscribeToEvents } from './common.js';
+import { byId, createRtcConfiguration, postJson, sendSignal, setStatus, subscribeToEvents } from './common.js';
 
 const viewerNameInput = byId('viewer-name');
 const sessionIdInput = byId('session-id');
@@ -17,7 +17,7 @@ let hasRemoteDescription = false;
 sessionIdInput.value = sessionId;
 
 function createPeerConnection() {
-  peerConnection = new RTCPeerConnection();
+  peerConnection = new RTCPeerConnection(createRtcConfiguration());
 
   peerConnection.addEventListener('track', (event) => {
     const [stream] = event.streams;

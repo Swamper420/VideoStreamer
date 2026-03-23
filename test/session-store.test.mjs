@@ -56,6 +56,27 @@ test('createSessionStore trims participant names to a safe size', () => {
   assert.equal(session.hostName.length, 80);
 });
 
+test('createSessionStore authorizes host control only with the issued control token', () => {
+  const store = createSessionStore();
+  const session = store.createSession({ hostName: 'Host' });
+
+  assert.doesNotThrow(() => {
+    store.authorizeHostControl(session.sessionId, {
+      hostId: session.hostId,
+      controlToken: session.controlToken,
+    });
+  });
+
+  assert.throws(
+    () =>
+      store.authorizeHostControl(session.sessionId, {
+        hostId: session.hostId,
+        controlToken: 'bad-token',
+      }),
+    /Host control authorization failed/,
+  );
+});
+
 test('createSessionStore rejects malformed signal messages', () => {
   const store = createSessionStore();
   const session = store.createSession({ hostName: 'Host' });
