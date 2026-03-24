@@ -49,29 +49,82 @@ export function createRtcConfiguration() {
   };
 }
 
-export function createDisplayMediaOptions() {
+function preferredCaptureNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? {
+        ideal: value,
+        max: value,
+      }
+    : undefined;
+}
+
+export function createDisplayMediaOptions(options = {}) {
+  const frameRate = preferredCaptureNumber(options.frameRate) ?? preferredCaptureNumber(60);
+  const width = preferredCaptureNumber(options.width);
+  const height = preferredCaptureNumber(options.height);
+
   return {
     video: {
-      frameRate: {
-        ideal: 60,
-        max: 60,
-      },
+      ...(width ? { width } : {}),
+      ...(height ? { height } : {}),
+      frameRate,
     },
-    audio: true,
+    audio: options.audio ?? true,
   };
 }
 
-export function preferredVideoCodecs() {
+export function preferredVideoCodecs(preference = 'auto') {
   const capabilities = RTCRtpSender.getCapabilities?.('video');
   if (!capabilities?.codecs) {
     return [];
   }
 
-  return capabilities.codecs.filter((codec) => codec.mimeType === 'video/AV1' || codec.mimeType === 'video/H264');
+  const preferredMimeTypesByOption = {
+    auto: ['video/AV1', 'video/H264'],
+    av1: ['video/AV1'],
+    h264: ['video/H264'],
+    vp9: ['video/VP9'],
+    vp8: ['video/VP8'],
+  };
+  const preferredMimeTypes = preferredMimeTypesByOption[preference] ?? preferredMimeTypesByOption.auto;
+  return capabilities.codecs.filter((codec) => preferredMimeTypes.includes(codec.mimeType));
 }
 
-export function attachStreamTracks(peerConnection, stream) {
-  const codecs = preferredVideoCodecs();
+function buildEncodingParameters(options = {}) {
+  const encoding = {};
+
+  if (typeof options.maxBitrate === 'number' && Number.isFinite(options.maxBitrate) && options.maxBitrate > 0) {
+    encoding.maxBitrate = options.maxBitrate;
+  }
+
+  if (typeof options.frameRate === 'number' && Number.isFinite(options.frameRate) && options.frameRate > 0) {
+    encoding.maxFramerate = options.frameRate;
+  }
+
+  return Object.keys(encoding).length > 0 ? encoding : null;
+}
+
+async function applyVideoSenderOptions(transceiver, options = {}) {
+  const encoding = buildEncodingParameters(options);
+  const sender = transceiver.sender;
+
+  if (!encoding || !sender?.getParameters || !sender.setParameters) {
+    return;
+  }
+
+  const parameters = sender.getParameters() ?? {};
+  const existingEncodings = Array.isArray(parameters.encodings) ? parameters.encodings : [];
+  const [firstEncoding = {}, ...restEncodings] = existingEncodings;
+
+  await sender.setParameters({
+    ...parameters,
+    encodings: [{ ...firstEncoding, ...encoding }, ...restEncodings],
+  });
+}
+
+export async function attachStreamTracks(peerConnection, stream, options = {}) {
+  const codecs = preferredVideoCodecs(options.codecPreference);
+  const pendingSenderUpdates = [];
 
   for (const track of stream.getTracks()) {
     const transceiver = peerConnection.addTransceiver(track, {
@@ -80,7 +133,20 @@ export function attachStreamTracks(peerConnection, stream) {
     });
 
     if (track.kind === 'video' && codecs.length > 0) {
+      if (typeof options.contentHint === 'string' && options.contentHint) {
+        track.contentHint = options.contentHint;
+      }
+
       transceiver.setCodecPreferences(codecs);
+      pendingSenderUpdates.push(applyVideoSenderOptions(transceiver, options));
+    } else if (track.kind === 'video') {
+      if (typeof options.contentHint === 'string' && options.contentHint) {
+        track.contentHint = options.contentHint;
+      }
+
+      pendingSenderUpdates.push(applyVideoSenderOptions(transceiver, options));
     }
   }
+
+  await Promise.all(pendingSenderUpdates);
 }

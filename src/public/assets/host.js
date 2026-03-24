@@ -17,19 +17,36 @@ const statusText = byId('host-status');
 const sessionCard = byId('session-card');
 const viewerLinkInput = byId('viewer-link');
 const codecSummary = byId('codec-summary');
+const streamSettingsSummary = byId('stream-settings-summary');
 const useLocalInputBridgeCheckbox = byId('use-local-input-bridge');
 const inputBridgeCard = byId('input-bridge-card');
 const inputBridgeCommand = byId('input-bridge-command');
 const hostPreview = byId('host-preview');
 const viewerCount = byId('viewer-count');
 const inputLog = byId('input-log');
+const shareAudioCheckbox = byId('share-audio');
+const videoCodecSelect = byId('video-codec');
+const videoContentHintSelect = byId('video-content-hint');
+const resolutionPresetSelect = byId('video-resolution-preset');
+const videoWidthInput = byId('video-width');
+const videoHeightInput = byId('video-height');
+const videoFrameRateInput = byId('video-frame-rate');
+const videoMaxBitrateInput = byId('video-max-bitrate');
 const MALFORMED_CONTROL_MESSAGE = 'Received malformed viewer control input.';
+const codecLabels = {
+  auto: 'Auto (AV1 → H.264)',
+  av1: 'AV1',
+  h264: 'H.264',
+  vp9: 'VP9',
+  vp8: 'VP8',
+};
 
 let sessionId = '';
 let hostId = '';
 let controlToken = '';
 let displayStream = null;
 let captureBounds = { width: 0, height: 0 };
+let streamingOptions = null;
 const peers = new Map();
 
 useLocalInputBridgeCheckbox.checked = shouldPreferLinuxInputBridge({
@@ -144,21 +161,66 @@ async function forwardControlToHostMachine(rawControl) {
   }
 }
 
-function describeCodecPreference() {
-  const codecs = preferredVideoCodecs();
-  if (codecs.length === 0) {
-    return 'No AV1/H.264 send codecs were reported by this browser.';
+function parsePositiveNumber(value) {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function parseResolutionPreset(value) {
+  if (!value) {
+    return {};
   }
 
-  return `Preferred codecs: ${codecs.map((codec) => codec.mimeType.replace('video/', '')).join(' → ')}. ` +
+  const [width, height] = value.split('x').map((part) => Number.parseInt(part, 10));
+  return {
+    width: parsePositiveNumber(width),
+    height: parsePositiveNumber(height),
+  };
+}
+
+function getStreamingOptions() {
+  const presetResolution = parseResolutionPreset(resolutionPresetSelect.value);
+  const width = parsePositiveNumber(videoWidthInput.valueAsNumber) ?? presetResolution.width;
+  const height = parsePositiveNumber(videoHeightInput.valueAsNumber) ?? presetResolution.height;
+  const maxBitrateKbps = parsePositiveNumber(videoMaxBitrateInput.valueAsNumber);
+
+  return {
+    audio: shareAudioCheckbox.checked,
+    codecPreference: videoCodecSelect.value,
+    contentHint: videoContentHintSelect.value,
+    width,
+    height,
+    frameRate: parsePositiveNumber(videoFrameRateInput.valueAsNumber) ?? 60,
+    maxBitrate: maxBitrateKbps ? maxBitrateKbps * 1000 : undefined,
+  };
+}
+
+function describeCodecPreference(options) {
+  const codecs = preferredVideoCodecs(options.codecPreference);
+  const requestedCodec = codecLabels[options.codecPreference] ?? codecLabels.auto;
+  if (codecs.length === 0) {
+    return `${requestedCodec} was selected, but this browser did not report a matching send codec. Browser defaults will be used.`;
+  }
+
+  return `Requested codec path: ${requestedCodec}. Browser send preference: ` +
+    `${codecs.map((codec) => codec.mimeType.replace('video/', '')).join(' → ')}. ` +
     'Hardware acceleration is used when the browser and GPU support it.';
+}
+
+function describeStreamSettings(options) {
+  const resolution = options.width && options.height ? `${options.width}×${options.height}` : 'Native display resolution';
+  const frameRate = `${options.frameRate ?? 60}fps`;
+  const bitrate = options.maxBitrate ? `${Math.round(options.maxBitrate / 1000)} kbps max bitrate` : 'Browser-managed bitrate';
+  const audio = options.audio ? 'Shared system audio enabled' : 'Video only';
+  const contentHint = options.contentHint ? `content hint ${options.contentHint}` : 'automatic content hint';
+
+  return `Streaming profile: ${resolution}, ${frameRate}, ${bitrate}, ${contentHint}. ${audio}.`;
 }
 
 async function handleViewerJoined({ viewerId, viewerName }) {
   setStatus(statusText, `${viewerName} joined. Creating an offer.`);
 
   const peerState = getOrCreatePeerState(viewerId);
-  attachStreamTracks(peerState.peerConnection, displayStream);
+  await attachStreamTracks(peerState.peerConnection, displayStream, streamingOptions ?? undefined);
 
   const offer = await peerState.peerConnection.createOffer();
   await peerState.peerConnection.setLocalDescription(offer);
@@ -204,6 +266,7 @@ async function startSession() {
   startButton.disabled = true;
 
   try {
+    streamingOptions = getStreamingOptions();
     const session = await postJson('/api/sessions', {
       hostName: hostNameInput.value,
       controlMode: useLocalInputBridgeCheckbox.checked ? 'bridge' : 'server',
@@ -213,7 +276,7 @@ async function startSession() {
     hostId = session.hostId;
     controlToken = session.controlToken;
 
-    displayStream = await navigator.mediaDevices.getDisplayMedia(createDisplayMediaOptions());
+    displayStream = await navigator.mediaDevices.getDisplayMedia(createDisplayMediaOptions(streamingOptions));
 
     updateCaptureBounds(displayStream);
     hostPreview.srcObject = displayStream;
@@ -222,7 +285,8 @@ async function startSession() {
     const inviteUrl = new URL('/client', window.location.origin);
     inviteUrl.searchParams.set('sessionId', sessionId);
     viewerLinkInput.value = inviteUrl.toString();
-    codecSummary.textContent = describeCodecPreference();
+    codecSummary.textContent = describeCodecPreference(streamingOptions);
+    streamSettingsSummary.textContent = describeStreamSettings(streamingOptions);
     if (session.controlMode === 'bridge') {
       inputBridgeCommand.value = buildLinuxInputBridgeCommand({
         serverOrigin: window.location.origin,
@@ -238,6 +302,7 @@ async function startSession() {
     sessionCard.classList.remove('hidden');
     setStatus(statusText, 'Capture is live. Share the invite link with viewers.');
   } catch (error) {
+    streamingOptions = null;
     setStatus(statusText, error instanceof Error ? error.message : 'Unable to start the session.');
     startButton.disabled = false;
   }
