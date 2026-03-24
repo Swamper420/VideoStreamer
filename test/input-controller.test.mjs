@@ -47,6 +47,26 @@ test('normalizeInputAction clamps tiny mouse coordinate drift to the display bou
   });
 });
 
+test('normalizeInputAction accepts string-formatted numeric mouse coordinates', () => {
+  const normalizedControl = normalizeInputAction({
+    type: 'mousemove',
+    payload: {
+      x: '0.2864',
+      y: '0.4608',
+      screenWidth: '1920',
+      screenHeight: '1080',
+    },
+  });
+
+  assert.deepEqual(normalizedControl, {
+    type: 'mousemove',
+    payload: {
+      x: 550,
+      y: 497,
+    },
+  });
+});
+
 test('normalizeInputAction still rejects non-finite mouse coordinates', () => {
   assert.throws(
     () =>
@@ -54,6 +74,22 @@ test('normalizeInputAction still rejects non-finite mouse coordinates', () => {
         type: 'mousemove',
         payload: {
           x: Number.NaN,
+          y: 0.25,
+          screenWidth: 1920,
+          screenHeight: 1080,
+        },
+      }),
+    /x must be a finite number/,
+  );
+});
+
+test('normalizeInputAction rejects non-numeric string mouse coordinates', () => {
+  assert.throws(
+    () =>
+      normalizeInputAction({
+        type: 'mousemove',
+        payload: {
+          x: 'not-a-number',
           y: 0.25,
           screenWidth: 1920,
           screenHeight: 1080,
