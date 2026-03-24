@@ -70,8 +70,8 @@ support.
   ```
 
   Copy the exact command from the host page so the session ID, host ID, and control token match the active session.
-  Install `ydotool` and start `ydotoold` on the Linux desktop before running the bridge. On X11 desktops, `xdotool`
-  is also supported.
+  On Wayland desktops, install `ydotool` and start `ydotoold` before running the bridge. On X11 desktops, install
+  `xdotool` instead—the bridge detects the session type automatically.
 
   The bridge opens an outbound event stream back to the VideoStreamer server, so the server does not need direct
   network access to the Linux host.
