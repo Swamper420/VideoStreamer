@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildLinuxCommands,
-  buildWaylandCommands,
+  buildYdotoolCommands,
   createInputController,
   normalizeInputAction,
 } from '../src/server/input-controller.mjs';
@@ -128,21 +128,21 @@ test('buildLinuxCommands maps browser click and key controls to xdotool commands
   ]);
 });
 
-test('buildWaylandCommands maps browser click, wheel, and key controls to Wayland tools', () => {
-  const clickCommands = buildWaylandCommands({
+test('buildYdotoolCommands maps browser click, wheel, and key controls to ydotool commands', () => {
+  const clickCommands = buildYdotoolCommands({
     type: 'click',
     payload: {
       button: 2,
     },
   });
-  const wheelCommands = buildWaylandCommands({
+  const wheelCommands = buildYdotoolCommands({
     type: 'wheel',
     payload: {
       deltaX: -120,
       deltaY: 240,
     },
   });
-  const keyCommands = buildWaylandCommands({
+  const keyCommands = buildYdotoolCommands({
     type: 'keydown',
     payload: {
       code: 'Enter',
@@ -153,20 +153,95 @@ test('buildWaylandCommands maps browser click, wheel, and key controls to Waylan
   assert.deepEqual(clickCommands, [
     {
       file: 'ydotool',
-      args: ['click', '3'],
+      args: ['click', '0xC1'],
     },
   ]);
   assert.deepEqual(wheelCommands, [
     {
-      file: 'wlrctl',
-      args: ['pointer', 'scroll', '2', '-1'],
+      file: 'ydotool',
+      args: ['mousemove', '--wheel', '--', '-1', '-2'],
     },
   ]);
   assert.deepEqual(keyCommands, [
     {
-      file: 'wtype',
-      args: ['-P', 'return', '-p', 'return'],
+      file: 'ydotool',
+      args: ['key', '28:1', '28:0'],
     },
+  ]);
+});
+
+test('buildYdotoolCommands uses absolute positioning for mouse movement', () => {
+  const commands = buildYdotoolCommands({
+    type: 'mousemove',
+    payload: {
+      x: 960,
+      y: 540,
+    },
+  });
+
+  assert.deepEqual(commands, [
+    {
+      file: 'ydotool',
+      args: ['mousemove', '--absolute', '--', '960', '540'],
+    },
+  ]);
+});
+
+test('buildYdotoolCommands maps browser button 0 to ydotool left click', () => {
+  const commands = buildYdotoolCommands({
+    type: 'click',
+    payload: { button: 0 },
+  });
+
+  assert.deepEqual(commands, [
+    { file: 'ydotool', args: ['click', '0xC0'] },
+  ]);
+});
+
+test('buildYdotoolCommands maps browser button 1 to ydotool middle click', () => {
+  const commands = buildYdotoolCommands({
+    type: 'click',
+    payload: { button: 1 },
+  });
+
+  assert.deepEqual(commands, [
+    { file: 'ydotool', args: ['click', '0xC2'] },
+  ]);
+});
+
+test('buildYdotoolCommands maps keyboard codes to Linux kernel keycodes', () => {
+  const escapeCommands = buildYdotoolCommands({
+    type: 'keydown',
+    payload: { code: 'Escape', key: 'Escape' },
+  });
+  const letterCommands = buildYdotoolCommands({
+    type: 'keydown',
+    payload: { code: 'KeyA', key: 'a' },
+  });
+  const spaceCommands = buildYdotoolCommands({
+    type: 'keydown',
+    payload: { code: 'Space', key: ' ' },
+  });
+
+  assert.deepEqual(escapeCommands, [
+    { file: 'ydotool', args: ['key', '1:1', '1:0'] },
+  ]);
+  assert.deepEqual(letterCommands, [
+    { file: 'ydotool', args: ['key', '30:1', '30:0'] },
+  ]);
+  assert.deepEqual(spaceCommands, [
+    { file: 'ydotool', args: ['key', '57:1', '57:0'] },
+  ]);
+});
+
+test('buildYdotoolCommands falls back to ydotool type for unmapped keys with a single character', () => {
+  const commands = buildYdotoolCommands({
+    type: 'keydown',
+    payload: { code: 'IntlBackslash', key: '|' },
+  });
+
+  assert.deepEqual(commands, [
+    { file: 'ydotool', args: ['type', '--', '|'] },
   ]);
 });
 
@@ -207,7 +282,7 @@ test('createInputController executes validated commands on supported hosts', asy
   ]);
 });
 
-test('createInputController executes validated commands on Wayland hosts', async () => {
+test('createInputController executes validated commands on Wayland hosts using ydotool', async () => {
   const executedCommands = [];
   const controller = createInputController({
     platform: 'linux',
@@ -239,7 +314,7 @@ test('createInputController executes validated commands on Wayland hosts', async
   assert.deepEqual(executedCommands, [
     {
       file: 'ydotool',
-      args: ['mousemove', '960', '270'],
+      args: ['mousemove', '--absolute', '--', '960', '270'],
     },
   ]);
 });
@@ -288,6 +363,6 @@ test('createInputController reports missing Wayland host input tooling clearly',
           button: 0,
         },
       }),
-    /requires ydotool, wtype, and wlrctl/,
+    /requires ydotool and a running ydotoold daemon/,
   );
 });
