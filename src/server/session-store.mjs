@@ -116,8 +116,7 @@ export function createSessionStore() {
       return;
     }
 
-    participant.response.write(`event: ${event}\n`);
-    participant.response.write(`data: ${JSON.stringify(data)}\n\n`);
+    participant.response.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
   }
 
   return {
@@ -181,8 +180,7 @@ export function createSessionStore() {
       response.write('retry: 1000\n\n');
 
       for (const message of participant.queuedMessages) {
-        response.write(`event: ${message.event}\n`);
-        response.write(`data: ${JSON.stringify(message.data)}\n\n`);
+        response.write(`event: ${message.event}\ndata: ${JSON.stringify(message.data)}\n\n`);
       }
 
       participant.queuedMessages = [];
@@ -253,8 +251,7 @@ export function createSessionStore() {
       response.write('retry: 1000\n\n');
 
       for (const message of controlBridge.queuedMessages) {
-        response.write(`event: ${message.event}\n`);
-        response.write(`data: ${JSON.stringify(message.data)}\n\n`);
+        response.write(`event: ${message.event}\ndata: ${JSON.stringify(message.data)}\n\n`);
       }
 
       controlBridge.queuedMessages = [];

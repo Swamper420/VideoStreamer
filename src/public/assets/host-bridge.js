@@ -1,3 +1,7 @@
+/**
+ * Wraps a value in POSIX single quotes and escapes embedded single quotes by
+ * closing the string, writing an escaped quote, and reopening it: '\''.
+ */
 function escapeShellValue(value) {
   return `'${String(value).replaceAll("'", "'\\''")}'`;
 }

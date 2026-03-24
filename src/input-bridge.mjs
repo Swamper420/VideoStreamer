@@ -16,6 +16,13 @@ function readRequiredEnvironmentVariable(name) {
   return value;
 }
 
+function validateEnvironment() {
+  const missingVariables = REQUIRED_ENVIRONMENT_VARIABLES.filter((name) => !process.env[name]);
+  if (missingVariables.length > 0) {
+    throw new Error(`Missing required environment variables: ${missingVariables.join(', ')}.`);
+  }
+}
+
 function createControlStreamUrl() {
   const serverUrl = new URL(readRequiredEnvironmentVariable('VIDEO_STREAMER_SERVER_URL'));
   const sessionId = readRequiredEnvironmentVariable('VIDEO_STREAMER_SESSION_ID');
@@ -86,15 +93,11 @@ async function streamControls(streamUrl, onControl) {
     }
   }
 
-  if (!buffer.trim()) {
-    await flushEvent();
-  }
+  await flushEvent();
 }
 
 async function startInputBridge() {
-  for (const name of REQUIRED_ENVIRONMENT_VARIABLES) {
-    readRequiredEnvironmentVariable(name);
-  }
+  validateEnvironment();
 
   const controlStreamUrl = createControlStreamUrl();
   const inputController = createInputController();

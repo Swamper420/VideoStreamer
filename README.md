@@ -54,6 +54,8 @@ remote control support.
   npm run input-bridge
   ```
 
+  Copy the exact command from the host page so the session ID, host ID, and control token match the active session.
+
   The bridge opens an outbound event stream back to the VideoStreamer server, so the server does not need direct
   network access to the Linux host.
 

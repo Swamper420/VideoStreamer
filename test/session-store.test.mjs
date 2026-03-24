@@ -25,7 +25,7 @@ test('createSessionStore queues join messages for a disconnected host', () => {
 
   assert.equal(response.writes[0], 'retry: 1000\n\n');
   assert.match(response.writes[1], /event: viewer-joined/);
-  assert.match(response.writes[2], /Remote viewer/);
+  assert.match(response.writes[1], /Remote viewer/);
 });
 
 test('createSessionStore routes signal messages to the target participant', () => {
@@ -44,7 +44,7 @@ test('createSessionStore routes signal messages to the target participant', () =
 
   assert.equal(routedMessage.type, 'offer');
   assert.match(response.writes[1], /event: signal/);
-  assert.match(response.writes[2], /test-offer/);
+  assert.match(response.writes[1], /test-offer/);
 });
 
 test('createSessionStore trims participant names to a safe size', () => {
@@ -112,7 +112,7 @@ test('createSessionStore queues control events for a disconnected bridge host', 
 
   assert.equal(response.writes[0], 'retry: 1000\n\n');
   assert.match(response.writes[1], /event: control/);
-  assert.match(response.writes[2], /"button":0/);
+  assert.match(response.writes[1], /"button":0/);
 });
 
 test('createSessionStore rejects control bridge connections with a bad token', () => {
