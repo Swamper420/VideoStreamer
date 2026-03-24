@@ -36,6 +36,23 @@ const specialLinuxKeys = new Map([
   ['Tab', 'Tab'],
 ]);
 
+const specialWaylandKeys = new Map([
+  ['ArrowDown', 'down'],
+  ['ArrowLeft', 'left'],
+  ['ArrowRight', 'right'],
+  ['ArrowUp', 'up'],
+  ['Backspace', 'backspace'],
+  ['Delete', 'delete'],
+  ['End', 'end'],
+  ['Enter', 'return'],
+  ['Escape', 'escape'],
+  ['Home', 'home'],
+  ['PageDown', 'next'],
+  ['PageUp', 'prior'],
+  ['Space', 'space'],
+  ['Tab', 'tab'],
+]);
+
 const specialWindowsKeys = new Map([
   ['ArrowDown', '{DOWN}'],
   ['ArrowLeft', '{LEFT}'],
@@ -130,6 +147,27 @@ function mapLinuxKey({ code, key }) {
   }
 
   return '';
+}
+
+function mapWaylandKey({ code, key }) {
+  const namedKey = specialWaylandKeys.get(code);
+  if (namedKey) {
+    return { type: 'named', value: namedKey };
+  }
+
+  if (key.length === 1) {
+    return { type: 'text', value: key };
+  }
+
+  if (/^Key[A-Z]$/.test(code)) {
+    return { type: 'text', value: code.slice(-1).toLowerCase() };
+  }
+
+  if (/^Digit\d$/.test(code)) {
+    return { type: 'text', value: code.slice(-1) };
+  }
+
+  return null;
 }
 
 function escapeWindowsCharacter(character) {
@@ -314,6 +352,84 @@ export function buildLinuxCommands(control) {
   return [];
 }
 
+export function buildWaylandCommands(control) {
+  if (control.type === 'mousemove') {
+    return [
+      {
+        file: 'ydotool',
+        args: ['mousemove', String(control.payload.x), String(control.payload.y)],
+      },
+    ];
+  }
+
+  if (control.type === 'click') {
+    return [
+      {
+        file: 'ydotool',
+        args: ['click', String(control.payload.button + 1)],
+      },
+    ];
+  }
+
+  if (control.type === 'wheel') {
+    const horizontalSteps = normalizeScrollSteps(control.payload.deltaX);
+    const verticalSteps = normalizeScrollSteps(control.payload.deltaY);
+    if (horizontalSteps === 0 && verticalSteps === 0) {
+      return [];
+    }
+
+    return [
+      {
+        file: 'wlrctl',
+        args: [
+          'pointer',
+          'scroll',
+          verticalSteps === 0
+            ? '0'
+            : control.payload.deltaY > 0
+              ? String(verticalSteps)
+              : String(-verticalSteps),
+          horizontalSteps === 0
+            ? '0'
+            : control.payload.deltaX > 0
+              ? String(horizontalSteps)
+              : String(-horizontalSteps),
+        ],
+      },
+    ];
+  }
+
+  if (control.type === 'keydown') {
+    const key = mapWaylandKey(control.payload);
+    if (!key) {
+      return [];
+    }
+
+    return [
+      {
+        file: 'wtype',
+        args: key.type === 'named'
+          ? ['-P', key.value, '-p', key.value]
+          : [key.value],
+      },
+    ];
+  }
+
+  return [];
+}
+
+function detectLinuxInputBackend(environment) {
+  const sessionType = typeof environment?.XDG_SESSION_TYPE === 'string'
+    ? environment.XDG_SESSION_TYPE.trim().toLowerCase()
+    : '';
+  const hasWaylandDisplay = typeof environment?.WAYLAND_DISPLAY === 'string' && environment.WAYLAND_DISPLAY.trim() !== '';
+  if (sessionType === 'wayland' || hasWaylandDisplay) {
+    return 'wayland';
+  }
+
+  return 'x11';
+}
+
 function createWindowsMouseScript(flags, extraData = 0) {
   return [
     'Add-Type @"',
@@ -424,12 +540,20 @@ export function buildWindowsCommands(control) {
   return [];
 }
 
-export function createInputController({ platform = process.platform, execFileImpl = execFileAsync } = {}) {
+export function createInputController({
+  platform = process.platform,
+  environment = process.env,
+  execFileImpl = execFileAsync,
+} = {}) {
+  const linuxBackend = platform === 'linux' ? detectLinuxInputBackend(environment) : null;
+
   return {
     async execute(control) {
       const normalizedControl = normalizeInputAction(control);
       const commands = platform === 'linux'
-        ? buildLinuxCommands(normalizedControl)
+        ? linuxBackend === 'wayland'
+          ? buildWaylandCommands(normalizedControl)
+          : buildLinuxCommands(normalizedControl)
         : platform === 'win32'
           ? buildWindowsCommands(normalizedControl)
           : null;
@@ -449,7 +573,9 @@ export function createInputController({ platform = process.platform, execFileImp
       } catch (error) {
         const message = error instanceof Error && 'code' in error && error.code === 'ENOENT'
           ? platform === 'linux'
-            ? 'Host input control requires xdotool to be installed on the host machine.'
+            ? linuxBackend === 'wayland'
+              ? 'Host input control on Wayland requires ydotool, wtype, and wlrctl to be installed on the host machine.'
+              : 'Host input control requires xdotool to be installed on the host machine.'
             : 'Host input control requires PowerShell to be available on the host machine.'
           : 'Unable to apply input on the host machine.';
         throw new Error(message);
