@@ -106,7 +106,11 @@ async function startInputBridge() {
   while (true) {
     try {
       await streamControls(controlStreamUrl, async (control) => {
-        await inputController.execute(control);
+        try {
+          await inputController.execute(control);
+        } catch (controlError) {
+          console.error(controlError instanceof Error ? controlError.message : 'Unable to apply input on the host machine.');
+        }
       });
     } catch (error) {
       console.error(error instanceof Error ? error.message : 'Input bridge disconnected unexpectedly.');

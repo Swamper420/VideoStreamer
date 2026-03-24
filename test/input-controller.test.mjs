@@ -404,3 +404,57 @@ test('createInputController reports missing Wayland host input tooling clearly',
     /requires ydotool and a running ydotoold daemon/,
   );
 });
+
+test('createInputController includes stderr details when a tool command fails', async () => {
+  const controller = createInputController({
+    platform: 'linux',
+    environment: {
+      XDG_SESSION_TYPE: 'wayland',
+    },
+    execFileImpl: async () => {
+      const error = new Error('Command failed');
+      error.stderr = 'ydotool: error: failed to connect to ydotoold socket';
+      throw error;
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      controller.execute({
+        type: 'click',
+        payload: {
+          button: 0,
+        },
+      }),
+    (error) => {
+      assert.match(error.message, /Unable to apply input on the host machine\./);
+      assert.match(error.message, /ydotool: error: failed to connect to ydotoold socket/);
+      return true;
+    },
+  );
+});
+
+test('createInputController includes error message when tool fails without stderr', async () => {
+  const controller = createInputController({
+    platform: 'linux',
+    environment: {},
+    execFileImpl: async () => {
+      throw new Error('Command failed: xdotool');
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      controller.execute({
+        type: 'click',
+        payload: {
+          button: 0,
+        },
+      }),
+    (error) => {
+      assert.match(error.message, /Unable to apply input on the host machine\./);
+      assert.match(error.message, /Command failed: xdotool/);
+      return true;
+    },
+  );
+});
