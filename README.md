@@ -44,7 +44,11 @@ directly on the host OS is recommended when you need remote control support.
   ```bash
   sudo apt update
   sudo apt install ydotool ydotoold wtype wlrctl
+  sudo nohup ydotoold >/tmp/ydotoold.log 2>&1 &
   ```
+
+  Keep `ydotoold` running while the host session is active. If your distro provides a service unit for `ydotoold`,
+  enabling that service is a good alternative to starting it manually.
 
 - Windows hosts use the built-in PowerShell executable. If `powershell.exe` is unavailable in `PATH`, install or
   re-enable Windows PowerShell before starting the server.

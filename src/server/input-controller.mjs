@@ -150,8 +150,9 @@ function mapLinuxKey({ code, key }) {
 }
 
 function mapWaylandKey({ code, key }) {
-  if (specialWaylandKeys.has(code)) {
-    return { type: 'named', value: specialWaylandKeys.get(code) };
+  const namedKey = specialWaylandKeys.get(code);
+  if (namedKey) {
+    return { type: 'named', value: namedKey };
   }
 
   if (key.length === 1) {
@@ -419,9 +420,10 @@ export function buildWaylandCommands(control) {
 
 function detectLinuxInputBackend(environment) {
   const sessionType = typeof environment?.XDG_SESSION_TYPE === 'string'
-    ? environment.XDG_SESSION_TYPE.toLowerCase()
+    ? environment.XDG_SESSION_TYPE.trim().toLowerCase()
     : '';
-  if (sessionType === 'wayland' || Boolean(environment?.WAYLAND_DISPLAY)) {
+  const hasWaylandDisplay = typeof environment?.WAYLAND_DISPLAY === 'string' && environment.WAYLAND_DISPLAY.trim() !== '';
+  if (sessionType === 'wayland' || hasWaylandDisplay) {
     return 'wayland';
   }
 
@@ -543,10 +545,11 @@ export function createInputController({
   environment = process.env,
   execFileImpl = execFileAsync,
 } = {}) {
+  const linuxBackend = platform === 'linux' ? detectLinuxInputBackend(environment) : null;
+
   return {
     async execute(control) {
       const normalizedControl = normalizeInputAction(control);
-      const linuxBackend = platform === 'linux' ? detectLinuxInputBackend(environment) : null;
       const commands = platform === 'linux'
         ? linuxBackend === 'wayland'
           ? buildWaylandCommands(normalizedControl)
