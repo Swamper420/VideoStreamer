@@ -71,7 +71,7 @@ const specialWindowsKeys = new Map([
 ]);
 
 function toFiniteNumber(value, field, { min = Number.NEGATIVE_INFINITY, max = Number.POSITIVE_INFINITY } = {}) {
-  const numericValue = typeof value === 'string' && value.trim() ? Number(value) : value;
+  const numericValue = typeof value === 'string' && value.trim() !== '' ? Number(value) : value;
   if (typeof numericValue !== 'number' || !Number.isFinite(numericValue) || numericValue < min || numericValue > max) {
     throw new Error(`${field} must be a finite number between ${min} and ${max}.`);
   }
