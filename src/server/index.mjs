@@ -152,9 +152,13 @@ const routes = [
         controlToken: body.controlToken,
       });
 
-      const control = store.getHostControlMode(sessionId) === 'bridge'
-        ? store.queueHostControl(sessionId, normalizeInputAction(body.control))
-        : await inputController.execute(body.control);
+      let control;
+      if (store.getHostControlMode(sessionId) === 'bridge') {
+        normalizeInputAction(body.control); // validate only; bridge normalizes when executing
+        control = store.queueHostControl(sessionId, body.control);
+      } else {
+        control = await inputController.execute(body.control);
+      }
 
       sendJson(response, 202, { ok: true, control });
     }),
