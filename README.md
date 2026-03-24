@@ -40,14 +40,31 @@ remote control support.
 
 - Windows hosts use the built-in PowerShell executable. If `powershell.exe` is unavailable in `PATH`, install or
   re-enable Windows PowerShell before starting the server.
-- When running inside Docker, input forwarding still has to be executed by a process on the host OS. Use the Node.js
-  setup above when you want viewers to control the host machine.
+- When the video service is running remotely, or inside Docker on another machine, enable the **local Linux input
+  bridge** checkbox on the host page. After the session starts, copy the generated command and run it on the Linux
+  machine that should receive mouse and keyboard input:
+
+  ```bash
+  sudo apt update
+  sudo apt install xdotool
+  VIDEO_STREAMER_SERVER_URL='https://your-server.example.com' \
+  VIDEO_STREAMER_SESSION_ID='...' \
+  VIDEO_STREAMER_HOST_ID='...' \
+  VIDEO_STREAMER_CONTROL_TOKEN='...' \
+  npm run input-bridge
+  ```
+
+  The bridge opens an outbound event stream back to the VideoStreamer server, so the server does not need direct
+  network access to the Linux host.
 
 ### Docker
 
 ```bash
 docker compose up --build
 ```
+
+Docker remains a good way to run the streaming service itself. For Linux host input, run the generated `npm run
+input-bridge` command on the actual Linux desktop that should receive the forwarded controls.
 
 ## Notes on codecs and acceleration
 

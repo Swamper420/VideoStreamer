@@ -99,6 +99,12 @@ button {
   gap: 6px;
 }
 
+.field-inline {
+  grid-template-columns: auto 1fr;
+  align-items: start;
+}
+
+textarea,
 input {
   width: 100%;
   padding: 12px 14px;
@@ -106,6 +112,11 @@ input {
   border: 1px solid rgba(148, 163, 184, 0.2);
   background: rgba(15, 23, 42, 0.9);
   color: inherit;
+}
+
+.field-inline input {
+  width: auto;
+  margin-top: 2px;
 }
 
 .status {

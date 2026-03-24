@@ -20,6 +20,10 @@
           <span>Host name</span>
           <input id="host-name" type="text" value="Host" maxlength="80" />
         </label>
+        <label class="field field-inline">
+          <input id="use-local-input-bridge" type="checkbox" />
+          <span>Use a local Linux input bridge when this page is served from another machine or Docker host</span>
+        </label>
         <button id="start-session" class="button">Create session and capture screen + audio</button>
         <p id="host-status" class="status">Waiting to start.</p>
         <div id="session-card" class="panel panel-muted hidden">
@@ -27,6 +31,10 @@
           <p>Share this link with viewers:</p>
           <input id="viewer-link" type="text" readonly />
           <p id="codec-summary" class="status"></p>
+          <div id="input-bridge-card" class="hidden">
+            <p class="status">Run this on the Linux machine that should receive viewer mouse and keyboard input:</p>
+            <textarea id="input-bridge-command" rows="4" readonly></textarea>
+          </div>
         </div>
       </section>
 

@@ -1,6 +1,7 @@
 import { randomUUID, timingSafeEqual } from 'node:crypto';
 
 const MAX_MESSAGE_QUEUE = 64;
+const supportedControlModes = new Set(['server', 'bridge']);
 
 function createParticipant(role, name) {
   return {
@@ -23,6 +24,23 @@ function sanitizeName(name, fallback) {
   }
 
   return trimmed.slice(0, 80);
+}
+
+function sanitizeControlMode(controlMode) {
+  if (controlMode === undefined) {
+    return 'server';
+  }
+
+  if (typeof controlMode !== 'string') {
+    throw new Error('Control mode must be a string.');
+  }
+
+  const normalizedControlMode = controlMode.trim();
+  if (!supportedControlModes.has(normalizedControlMode)) {
+    throw new Error('Control mode must be "server" or "bridge".');
+  }
+
+  return normalizedControlMode;
 }
 
 function sanitizeMessage(message) {
@@ -103,13 +121,18 @@ export function createSessionStore() {
   }
 
   return {
-    createSession({ hostName = 'Host' } = {}) {
+    createSession({ hostName = 'Host', controlMode } = {}) {
       const sessionId = randomUUID();
       const host = createParticipant('host', sanitizeName(hostName, 'Host'));
       const session = {
         id: sessionId,
         createdAt: new Date().toISOString(),
         hostId: host.id,
+        controlMode: sanitizeControlMode(controlMode),
+        controlBridge: {
+          response: null,
+          queuedMessages: [],
+        },
         controlToken: randomUUID(),
         participants: new Map([[host.id, host]]),
       };
@@ -119,6 +142,7 @@ export function createSessionStore() {
         sessionId,
         hostId: host.id,
         hostName: host.name,
+        controlMode: session.controlMode,
         controlToken: session.controlToken,
       };
     },
@@ -128,6 +152,7 @@ export function createSessionStore() {
       return {
         sessionId: session.id,
         hostId: session.hostId,
+        controlMode: session.controlMode,
         participantCount: session.participants.size,
       };
     },
@@ -195,6 +220,49 @@ export function createSessionStore() {
       return {
         sessionId: session.id,
         hostId: session.hostId,
+      };
+    },
+
+    getHostControlMode(sessionId) {
+      const session = getSessionOrThrow(sessionId);
+      return session.controlMode;
+    },
+
+    queueHostControl(sessionId, control) {
+      const session = getSessionOrThrow(sessionId);
+      if (session.controlMode !== 'bridge') {
+        throw new Error('Host control bridge is not enabled for this session.');
+      }
+
+      sendEvent(session.controlBridge, 'control', control);
+      return control;
+    },
+
+    attachHostControlStream(sessionId, { hostId, controlToken } = {}, response) {
+      const session = getSessionOrThrow(sessionId);
+      if (session.controlMode !== 'bridge') {
+        throw new Error('Host control bridge is not enabled for this session.');
+      }
+
+      if (session.hostId !== hostId || !tokensMatch(session.controlToken, controlToken)) {
+        throw new Error('Host control authorization failed.');
+      }
+
+      const controlBridge = session.controlBridge;
+      controlBridge.response = response;
+      response.write('retry: 1000\n\n');
+
+      for (const message of controlBridge.queuedMessages) {
+        response.write(`event: ${message.event}\n`);
+        response.write(`data: ${JSON.stringify(message.data)}\n\n`);
+      }
+
+      controlBridge.queuedMessages = [];
+
+      return () => {
+        if (controlBridge.response === response) {
+          controlBridge.response = null;
+        }
       };
     },
   };

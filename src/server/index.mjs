@@ -2,7 +2,7 @@ import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { createInputController } from './input-controller.mjs';
+import { createInputController, normalizeInputAction } from './input-controller.mjs';
 import { createSessionStore } from './session-store.mjs';
 
 const PORT = Number.parseInt(process.env.PORT ?? '3000', 10);
@@ -116,7 +116,10 @@ const routes = [
     pattern: /^\/api\/sessions$/,
     handler: withErrorHandling(async (request, response) => {
       const body = await readJsonBody(request);
-      const session = store.createSession({ hostName: body.hostName });
+      const session = store.createSession({
+        hostName: body.hostName,
+        controlMode: body.controlMode,
+      });
       sendJson(response, 201, session);
     }),
   },
@@ -148,8 +151,29 @@ const routes = [
         hostId: body.hostId,
         controlToken: body.controlToken,
       });
-      const control = await inputController.execute(body.control);
+
+      const control = store.getHostControlMode(sessionId) === 'bridge'
+        ? store.queueHostControl(sessionId, normalizeInputAction(body.control))
+        : await inputController.execute(body.control);
+
       sendJson(response, 202, { ok: true, control });
+    }),
+  },
+  {
+    method: 'GET',
+    pattern: /^\/api\/sessions\/([^/]+)\/controls\/stream$/,
+    handler: withErrorHandling(async (_request, response, url) => {
+      const sessionId = url.pathname.split('/')[3];
+      const hostId = url.searchParams.get('hostId');
+      const controlToken = url.searchParams.get('controlToken');
+
+      if (!hostId || !controlToken) {
+        throw new Error('hostId and controlToken are required.');
+      }
+
+      startEventStream(response);
+      const detach = store.attachHostControlStream(sessionId, { hostId, controlToken }, response);
+      response.on('close', detach);
     }),
   },
   {
