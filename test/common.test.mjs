@@ -88,14 +88,14 @@ test('attachStreamTracks adds video and audio tracks and applies codec and sende
   globalThis.RTCRtpSender = {
     getCapabilities(kind) {
       assert.equal(kind, 'video');
-        return {
-          codecs: [
-            { mimeType: 'video/VP8' },
-            { mimeType: 'video/VP9' },
-            { mimeType: 'video/H264' },
-          ],
-        };
-      },
+      return {
+        codecs: [
+          { mimeType: 'video/VP8' },
+          { mimeType: 'video/VP9' },
+          { mimeType: 'video/H264' },
+        ],
+      };
+    },
   };
 
   try {

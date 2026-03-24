@@ -6,6 +6,7 @@ export const defaultIceServers = Object.freeze([
   Object.freeze({ urls: 'stun:stun.l.google.com:19302' }),
   Object.freeze({ urls: 'stun:stun1.l.google.com:19302' }),
 ]);
+export const defaultVideoFrameRate = 60;
 
 export async function postJson(path, payload) {
   const response = await fetch(path, {
@@ -59,7 +60,7 @@ function preferredCaptureNumber(value) {
 }
 
 export function createDisplayMediaOptions(options = {}) {
-  const frameRate = preferredCaptureNumber(options.frameRate) ?? preferredCaptureNumber(60);
+  const frameRate = preferredCaptureNumber(options.frameRate) ?? preferredCaptureNumber(defaultVideoFrameRate);
   const width = preferredCaptureNumber(options.width);
   const height = preferredCaptureNumber(options.height);
 
@@ -112,7 +113,7 @@ async function applyVideoSenderOptions(transceiver, options = {}) {
     return;
   }
 
-  const parameters = sender.getParameters() ?? {};
+  const parameters = sender.getParameters();
   const existingEncodings = Array.isArray(parameters.encodings) ? parameters.encodings : [];
   const [firstEncoding = {}, ...restEncodings] = existingEncodings;
 
@@ -132,20 +133,19 @@ export async function attachStreamTracks(peerConnection, stream, options = {}) {
       streams: [stream],
     });
 
-    if (track.kind === 'video' && codecs.length > 0) {
-      if (typeof options.contentHint === 'string' && options.contentHint) {
-        track.contentHint = options.contentHint;
-      }
-
-      transceiver.setCodecPreferences(codecs);
-      pendingSenderUpdates.push(applyVideoSenderOptions(transceiver, options));
-    } else if (track.kind === 'video') {
-      if (typeof options.contentHint === 'string' && options.contentHint) {
-        track.contentHint = options.contentHint;
-      }
-
-      pendingSenderUpdates.push(applyVideoSenderOptions(transceiver, options));
+    if (track.kind !== 'video') {
+      continue;
     }
+
+    if (typeof options.contentHint === 'string' && options.contentHint) {
+      track.contentHint = options.contentHint;
+    }
+
+    if (codecs.length > 0) {
+      transceiver.setCodecPreferences(codecs);
+    }
+
+    pendingSenderUpdates.push(applyVideoSenderOptions(transceiver, options));
   }
 
   await Promise.all(pendingSenderUpdates);

@@ -3,6 +3,7 @@ import {
   byId,
   createDisplayMediaOptions,
   createRtcConfiguration,
+  defaultVideoFrameRate,
   postJson,
   preferredVideoCodecs,
   sendSignal,
@@ -189,7 +190,7 @@ function getStreamingOptions() {
     contentHint: videoContentHintSelect.value,
     width,
     height,
-    frameRate: parsePositiveNumber(videoFrameRateInput.valueAsNumber) ?? 60,
+    frameRate: parsePositiveNumber(videoFrameRateInput.valueAsNumber) ?? defaultVideoFrameRate,
     maxBitrate: maxBitrateKbps ? maxBitrateKbps * 1000 : undefined,
   };
 }
@@ -207,8 +208,8 @@ function describeCodecPreference(options) {
 }
 
 function describeStreamSettings(options) {
-  const resolution = options.width && options.height ? `${options.width}×${options.height}` : 'Native display resolution';
-  const frameRate = `${options.frameRate ?? 60}fps`;
+  const resolution = options.width && options.height ? `${options.width}x${options.height}` : 'Native display resolution';
+  const frameRate = `${options.frameRate ?? defaultVideoFrameRate}fps`;
   const bitrate = options.maxBitrate ? `${Math.round(options.maxBitrate / 1000)} kbps max bitrate` : 'Browser-managed bitrate';
   const audio = options.audio ? 'Shared system audio enabled' : 'Video only';
   const contentHint = options.contentHint ? `content hint ${options.contentHint}` : 'automatic content hint';
@@ -220,7 +221,7 @@ async function handleViewerJoined({ viewerId, viewerName }) {
   setStatus(statusText, `${viewerName} joined. Creating an offer.`);
 
   const peerState = getOrCreatePeerState(viewerId);
-  await attachStreamTracks(peerState.peerConnection, displayStream, streamingOptions ?? undefined);
+  await attachStreamTracks(peerState.peerConnection, displayStream, streamingOptions);
 
   const offer = await peerState.peerConnection.createOffer();
   await peerState.peerConnection.setLocalDescription(offer);
