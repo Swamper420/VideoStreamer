@@ -4,6 +4,7 @@
   "description": "Low-latency multi-viewer video streaming with forwarded client input.",
   "main": "src/server/index.mjs",
   "scripts": {
+    "input-bridge": "node src/input-bridge.mjs",
     "start": "node src/server/index.mjs",
     "test": "node --test"
   },

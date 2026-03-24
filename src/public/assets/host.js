@@ -9,6 +9,7 @@ import {
   setStatus,
   subscribeToEvents,
 } from './common.js';
+import { buildLinuxInputBridgeCommand, shouldPreferLinuxInputBridge } from './host-bridge.js';
 
 const hostNameInput = byId('host-name');
 const startButton = byId('start-session');
@@ -16,6 +17,9 @@ const statusText = byId('host-status');
 const sessionCard = byId('session-card');
 const viewerLinkInput = byId('viewer-link');
 const codecSummary = byId('codec-summary');
+const useLocalInputBridgeCheckbox = byId('use-local-input-bridge');
+const inputBridgeCard = byId('input-bridge-card');
+const inputBridgeCommand = byId('input-bridge-command');
 const hostPreview = byId('host-preview');
 const viewerCount = byId('viewer-count');
 const inputLog = byId('input-log');
@@ -27,6 +31,11 @@ let controlToken = '';
 let displayStream = null;
 let captureBounds = { width: 0, height: 0 };
 const peers = new Map();
+
+useLocalInputBridgeCheckbox.checked = shouldPreferLinuxInputBridge({
+  platform: navigator.userAgentData?.platform ?? navigator.platform,
+  hostname: window.location.hostname,
+});
 
 function getOrCreatePeerState(viewerId) {
   const existingPeer = peers.get(viewerId);
@@ -197,6 +206,7 @@ async function startSession() {
   try {
     const session = await postJson('/api/sessions', {
       hostName: hostNameInput.value,
+      controlMode: useLocalInputBridgeCheckbox.checked ? 'bridge' : 'server',
     });
 
     sessionId = session.sessionId;
@@ -213,6 +223,18 @@ async function startSession() {
     inviteUrl.searchParams.set('sessionId', sessionId);
     viewerLinkInput.value = inviteUrl.toString();
     codecSummary.textContent = describeCodecPreference();
+    if (session.controlMode === 'bridge') {
+      inputBridgeCommand.value = buildLinuxInputBridgeCommand({
+        serverOrigin: window.location.origin,
+        sessionId,
+        hostId,
+        controlToken,
+      });
+      inputBridgeCard.classList.remove('hidden');
+    } else {
+      inputBridgeCommand.value = '';
+      inputBridgeCard.classList.add('hidden');
+    }
     sessionCard.classList.remove('hidden');
     setStatus(statusText, 'Capture is live. Share the invite link with viewers.');
   } catch (error) {

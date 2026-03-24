@@ -25,7 +25,7 @@ test('createSessionStore queues join messages for a disconnected host', () => {
 
   assert.equal(response.writes[0], 'retry: 1000\n\n');
   assert.match(response.writes[1], /event: viewer-joined/);
-  assert.match(response.writes[2], /Remote viewer/);
+  assert.match(response.writes[1], /Remote viewer/);
 });
 
 test('createSessionStore routes signal messages to the target participant', () => {
@@ -44,7 +44,7 @@ test('createSessionStore routes signal messages to the target participant', () =
 
   assert.equal(routedMessage.type, 'offer');
   assert.match(response.writes[1], /event: signal/);
-  assert.match(response.writes[2], /test-offer/);
+  assert.match(response.writes[1], /test-offer/);
 });
 
 test('createSessionStore trims participant names to a safe size', () => {
@@ -90,5 +90,41 @@ test('createSessionStore rejects malformed signal messages', () => {
         type: '',
       }),
     /Message type must be between 1 and 64 characters/,
+  );
+});
+
+test('createSessionStore queues control events for a disconnected bridge host', () => {
+  const store = createSessionStore();
+  const session = store.createSession({ hostName: 'Host', controlMode: 'bridge' });
+
+  store.queueHostControl(session.sessionId, {
+    type: 'click',
+    payload: {
+      button: 0,
+    },
+  });
+
+  const response = createFakeResponse();
+  store.attachHostControlStream(session.sessionId, {
+    hostId: session.hostId,
+    controlToken: session.controlToken,
+  }, response);
+
+  assert.equal(response.writes[0], 'retry: 1000\n\n');
+  assert.match(response.writes[1], /event: control/);
+  assert.match(response.writes[1], /"button":0/);
+});
+
+test('createSessionStore rejects control bridge connections with a bad token', () => {
+  const store = createSessionStore();
+  const session = store.createSession({ hostName: 'Host', controlMode: 'bridge' });
+  const response = createFakeResponse();
+
+  assert.throws(
+    () => store.attachHostControlStream(session.sessionId, {
+      hostId: session.hostId,
+      controlToken: 'bad-token',
+    }, response),
+    /Host control authorization failed/,
   );
 });
