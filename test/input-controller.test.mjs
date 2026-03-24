@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   buildLinuxCommands,
+  buildWaylandCommands,
   createInputController,
   normalizeInputAction,
 } from '../src/server/input-controller.mjs';
@@ -91,10 +92,53 @@ test('buildLinuxCommands maps browser click and key controls to xdotool commands
   ]);
 });
 
+test('buildWaylandCommands maps browser click, wheel, and key controls to Wayland tools', () => {
+  const clickCommands = buildWaylandCommands({
+    type: 'click',
+    payload: {
+      button: 2,
+    },
+  });
+  const wheelCommands = buildWaylandCommands({
+    type: 'wheel',
+    payload: {
+      deltaX: -120,
+      deltaY: 240,
+    },
+  });
+  const keyCommands = buildWaylandCommands({
+    type: 'keydown',
+    payload: {
+      code: 'Enter',
+      key: 'Enter',
+    },
+  });
+
+  assert.deepEqual(clickCommands, [
+    {
+      file: 'ydotool',
+      args: ['click', '3'],
+    },
+  ]);
+  assert.deepEqual(wheelCommands, [
+    {
+      file: 'wlrctl',
+      args: ['pointer', 'scroll', '2', '-1'],
+    },
+  ]);
+  assert.deepEqual(keyCommands, [
+    {
+      file: 'wtype',
+      args: ['-P', 'return', '-p', 'return'],
+    },
+  ]);
+});
+
 test('createInputController executes validated commands on supported hosts', async () => {
   const executedCommands = [];
   const controller = createInputController({
     platform: 'linux',
+    environment: {},
     execFileImpl: async (file, args) => {
       executedCommands.push({ file, args });
     },
@@ -127,9 +171,47 @@ test('createInputController executes validated commands on supported hosts', asy
   ]);
 });
 
+test('createInputController executes validated commands on Wayland hosts', async () => {
+  const executedCommands = [];
+  const controller = createInputController({
+    platform: 'linux',
+    environment: {
+      WAYLAND_DISPLAY: 'wayland-0',
+    },
+    execFileImpl: async (file, args) => {
+      executedCommands.push({ file, args });
+    },
+  });
+
+  const control = await controller.execute({
+    type: 'mousemove',
+    payload: {
+      x: 0.5,
+      y: 0.25,
+      screenWidth: 1920,
+      screenHeight: 1080,
+    },
+  });
+
+  assert.deepEqual(control, {
+    type: 'mousemove',
+    payload: {
+      x: 960,
+      y: 270,
+    },
+  });
+  assert.deepEqual(executedCommands, [
+    {
+      file: 'ydotool',
+      args: ['mousemove', '960', '270'],
+    },
+  ]);
+});
+
 test('createInputController reports missing host input tooling clearly', async () => {
   const controller = createInputController({
     platform: 'linux',
+    environment: {},
     execFileImpl: async () => {
       const error = new Error('missing');
       error.code = 'ENOENT';
@@ -146,5 +228,30 @@ test('createInputController reports missing host input tooling clearly', async (
         },
       }),
     /requires xdotool/,
+  );
+});
+
+test('createInputController reports missing Wayland host input tooling clearly', async () => {
+  const controller = createInputController({
+    platform: 'linux',
+    environment: {
+      XDG_SESSION_TYPE: 'wayland',
+    },
+    execFileImpl: async () => {
+      const error = new Error('missing');
+      error.code = 'ENOENT';
+      throw error;
+    },
+  });
+
+  await assert.rejects(
+    () =>
+      controller.execute({
+        type: 'click',
+        payload: {
+          button: 0,
+        },
+      }),
+    /requires ydotool, wtype, and wlrctl/,
   );
 });

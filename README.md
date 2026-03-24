@@ -24,18 +24,26 @@ npm start
 Open `http://localhost:3000/host` on the host machine, create a session, allow screen/audio capture, and share the
 generated client link with viewers.
 
-Host input control is executed by the Node.js process running on the host machine. Linux hosts need `xdotool`
-installed, and Windows hosts use PowerShell. Running the app directly on the host OS is recommended when you need
-remote control support.
+Host input control is executed by the Node.js process running on the host machine. Linux hosts use `xdotool` on X11
+sessions and `ydotool`, `wtype`, plus `wlrctl` on Wayland sessions. Windows hosts use PowerShell. Running the app
+directly on the host OS is recommended when you need remote control support.
 
 #### Getting host input working
 
 - Start the server on the same machine that should receive remote mouse and keyboard input.
-- Linux hosts need `xdotool` installed before starting `npm start`. On Debian or Ubuntu:
+- Linux X11 hosts need `xdotool` installed before starting `npm start`. On Debian or Ubuntu:
 
   ```bash
   sudo apt update
   sudo apt install xdotool
+  ```
+
+- Linux Wayland hosts need `ydotool`, `wtype`, and `wlrctl` installed before starting `npm start` or `npm run
+  input-bridge`. `ydotool` also needs a running `ydotoold` daemon with access to `/dev/uinput`.
+
+  ```bash
+  sudo apt update
+  sudo apt install ydotool ydotoold wtype wlrctl
   ```
 
 - Windows hosts use the built-in PowerShell executable. If `powershell.exe` is unavailable in `PATH`, install or
@@ -55,6 +63,7 @@ remote control support.
   ```
 
   Copy the exact command from the host page so the session ID, host ID, and control token match the active session.
+  Install the matching X11 or Wayland host input tools on that Linux desktop before running the bridge.
 
   The bridge opens an outbound event stream back to the VideoStreamer server, so the server does not need direct
   network access to the Linux host.
