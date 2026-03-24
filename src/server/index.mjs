@@ -154,7 +154,7 @@ const routes = [
 
       let control;
       if (store.getHostControlMode(sessionId) === 'bridge') {
-        normalizeInputAction(body.control);
+        normalizeInputAction(body.control); // validate only; bridge normalizes when executing
         control = store.queueHostControl(sessionId, body.control);
       } else {
         control = await inputController.execute(body.control);
