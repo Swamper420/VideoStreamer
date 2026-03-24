@@ -32,16 +32,26 @@ support.
 #### Getting host input working
 
 - Start the server on the same machine that should receive remote mouse and keyboard input.
-- Linux X11 hosts need `xdotool` installed before starting `npm start`. On Debian or Ubuntu:
+- Linux X11 hosts need `xdotool` installed before starting `npm start`.
+
+  Debian / Ubuntu:
 
   ```bash
   sudo apt update
   sudo apt install xdotool
   ```
 
+  Arch Linux:
+
+  ```bash
+  sudo pacman -S xdotool
+  ```
+
 - Linux Wayland hosts need `ydotool` installed and its companion `ydotoold` daemon running before starting `npm start`
   or `npm run input-bridge`. `ydotool` works at the kernel level via `/dev/uinput` and is compatible with all Wayland
   compositors (KDE Plasma, GNOME, Sway, Hyprland, and others).
+
+  Debian / Ubuntu:
 
   ```bash
   sudo apt update
@@ -49,8 +59,20 @@ support.
   sudo nohup ydotoold >/tmp/ydotoold.log 2>&1 &
   ```
 
-  Keep `ydotoold` running while the host session is active. If your distro provides a service unit for `ydotoold`,
-  enabling that service is a good alternative to starting it manually.
+  Arch Linux:
+
+  ```bash
+  sudo pacman -S ydotool
+  sudo systemctl enable --now ydotoold
+  ```
+
+  Keep `ydotoold` running while the host session is active. If your distro provides a service unit for `ydotoold`
+  (as Arch Linux does), enabling that service is a good alternative to starting it manually.
+
+  > **Note for KDE Plasma Wayland on Arch:** The `ydotoold` daemon requires access to `/dev/uinput`.
+  > Running it via the systemd service (`systemctl enable --now ydotoold`) handles permissions automatically.
+  > If you run `ydotoold` manually, ensure the process has permission to write to `/dev/uinput`
+  > (typically by running it as root or adding your user to the `input` group).
 
 - Windows hosts use the built-in PowerShell executable. If `powershell.exe` is unavailable in `PATH`, install or
   re-enable Windows PowerShell before starting the server.
@@ -59,9 +81,15 @@ support.
   machine that should receive mouse and keyboard input:
 
   ```bash
+  # Debian / Ubuntu
   sudo apt update
   sudo apt install ydotool
   sudo nohup ydotoold >/tmp/ydotoold.log 2>&1 &
+
+  # Arch Linux
+  sudo pacman -S ydotool
+  sudo systemctl enable --now ydotoold
+
   VIDEO_STREAMER_SERVER_URL='https://your-server.example.com' \
   VIDEO_STREAMER_SESSION_ID='...' \
   VIDEO_STREAMER_HOST_ID='...' \
