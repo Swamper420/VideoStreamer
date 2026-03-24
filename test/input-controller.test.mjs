@@ -319,6 +319,44 @@ test('createInputController executes validated commands on Wayland hosts using y
   ]);
 });
 
+test('normalizeInputAction rejects already-normalized pixel coordinates that exceed the normalized range', () => {
+  const normalized = normalizeInputAction({
+    type: 'mousemove',
+    payload: { x: 0.5, y: 0.25, screenWidth: 1920, screenHeight: 1080 },
+  });
+
+  assert.throws(
+    () => normalizeInputAction(normalized),
+    /x must be a finite number/,
+  );
+});
+
+test('createInputController on Wayland succeeds when given raw unnormalized controls', async () => {
+  const executedCommands = [];
+  const controller = createInputController({
+    platform: 'linux',
+    environment: { WAYLAND_DISPLAY: 'wayland-0' },
+    execFileImpl: async (file, args) => {
+      executedCommands.push({ file, args });
+    },
+  });
+
+  const rawControl = {
+    type: 'mousemove',
+    payload: { x: 0.5, y: 0.25, screenWidth: 1920, screenHeight: 1080 },
+  };
+
+  const result = await controller.execute(rawControl);
+
+  assert.deepEqual(result, {
+    type: 'mousemove',
+    payload: { x: 960, y: 270 },
+  });
+  assert.deepEqual(executedCommands, [
+    { file: 'ydotool', args: ['mousemove', '--absolute', '--', '960', '270'] },
+  ]);
+});
+
 test('createInputController reports missing host input tooling clearly', async () => {
   const controller = createInputController({
     platform: 'linux',
