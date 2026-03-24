@@ -598,12 +598,21 @@ export function createInputController({
           await execFileImpl(command.file, command.args);
         }
       } catch (error) {
-        const message = error instanceof Error && 'code' in error && error.code === 'ENOENT'
-          ? platform === 'linux'
+        const isNotFound = error instanceof Error && 'code' in error && error.code === 'ENOENT';
+        if (isNotFound) {
+          const message = platform === 'linux'
             ? linuxBackend === 'wayland'
               ? 'Host input control on Wayland requires ydotool and a running ydotoold daemon on the host machine.'
               : 'Host input control requires xdotool to be installed on the host machine.'
-            : 'Host input control requires PowerShell to be available on the host machine.'
+            : 'Host input control requires PowerShell to be available on the host machine.';
+          throw new Error(message);
+        }
+
+        const detail = error instanceof Error && typeof error.stderr === 'string' && error.stderr.trim()
+          ? error.stderr.trim()
+          : error instanceof Error ? error.message : '';
+        const message = detail
+          ? `Unable to apply input on the host machine. ${detail}`
           : 'Unable to apply input on the host machine.';
         throw new Error(message);
       }
