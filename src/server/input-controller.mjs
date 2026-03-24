@@ -5,6 +5,7 @@ const execFileAsync = promisify(execFile);
 const MAX_DISPLAY_DIMENSION = 16_384;
 const MAX_SCROLL_STEPS = 12;
 const MAX_KEY_IDENTIFIER_LENGTH = 64;
+const NORMALIZED_COORDINATE_TOLERANCE = 0.001;
 const WINDOWS_SEND_KEYS_SPECIAL_CHARACTERS = '+^%~(){}';
 const XDOTOOL_SCROLL_LEFT_BUTTON = '6';
 const XDOTOOL_SCROLL_RIGHT_BUTTON = '7';
@@ -83,7 +84,16 @@ function sanitizeKeyValue(value, field) {
 }
 
 function clampNormalizedCoordinate(value, field) {
-  return toFiniteNumber(value, field, { min: 0, max: 1 });
+  const numericValue = toFiniteNumber(
+    value,
+    field,
+    {
+      min: 0 - NORMALIZED_COORDINATE_TOLERANCE,
+      max: 1 + NORMALIZED_COORDINATE_TOLERANCE,
+    },
+  );
+
+  return Math.min(1, Math.max(0, numericValue));
 }
 
 function scaleCoordinate(value, size) {

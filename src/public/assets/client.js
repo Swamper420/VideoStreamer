@@ -14,6 +14,14 @@ let peerConnection = null;
 const pendingIceCandidates = [];
 let hasRemoteDescription = false;
 
+function clampNormalizedCoordinate(value) {
+  if (!Number.isFinite(value)) {
+    return undefined;
+  }
+
+  return Math.min(1, Math.max(0, value));
+}
+
 sessionIdInput.value = sessionId;
 
 function createPeerConnection() {
@@ -96,9 +104,15 @@ function registerInputHandlers() {
       return;
     }
 
+    const x = clampNormalizedCoordinate((event.clientX - bounds.left) / bounds.width);
+    const y = clampNormalizedCoordinate((event.clientY - bounds.top) / bounds.height);
+    if (x === undefined || y === undefined) {
+      return;
+    }
+
     forwardInput('mousemove', {
-      x: Number(((event.clientX - bounds.left) / bounds.width).toFixed(4)),
-      y: Number(((event.clientY - bounds.top) / bounds.height).toFixed(4)),
+      x: Number(x.toFixed(4)),
+      y: Number(y.toFixed(4)),
     });
   });
 

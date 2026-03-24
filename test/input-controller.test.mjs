@@ -26,6 +26,42 @@ test('normalizeInputAction converts normalized mouse coordinates into host pixel
   });
 });
 
+test('normalizeInputAction clamps tiny mouse coordinate drift to the display bounds', () => {
+  const normalizedControl = normalizeInputAction({
+    type: 'mousemove',
+    payload: {
+      x: 1.0001,
+      y: -0.0004,
+      screenWidth: 1920,
+      screenHeight: 1080,
+    },
+  });
+
+  assert.deepEqual(normalizedControl, {
+    type: 'mousemove',
+    payload: {
+      x: 1919,
+      y: 0,
+    },
+  });
+});
+
+test('normalizeInputAction still rejects non-finite mouse coordinates', () => {
+  assert.throws(
+    () =>
+      normalizeInputAction({
+        type: 'mousemove',
+        payload: {
+          x: Number.NaN,
+          y: 0.25,
+          screenWidth: 1920,
+          screenHeight: 1080,
+        },
+      }),
+    /x must be a finite number/,
+  );
+});
+
 test('buildLinuxCommands maps browser click and key controls to xdotool commands', () => {
   const clickCommands = buildLinuxCommands({
     type: 'click',
