@@ -24,6 +24,66 @@
           <input id="use-local-input-bridge" type="checkbox" />
           <span>Use a local Linux input bridge when this page is served from another machine or Docker host</span>
         </label>
+        <section class="panel panel-muted panel-stack">
+          <div>
+            <p class="eyebrow">Streaming options</p>
+            <h2>Power user tuning</h2>
+          </div>
+          <div class="field-grid">
+            <label class="field">
+              <span>Preferred codec</span>
+              <select id="video-codec">
+                <option value="auto" selected>Auto (AV1 → H.264)</option>
+                <option value="av1">AV1</option>
+                <option value="h264">H.264</option>
+                <option value="vp9">VP9</option>
+                <option value="vp8">VP8</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Content hint</span>
+              <select id="video-content-hint">
+                <option value="" selected>Auto</option>
+                <option value="motion">Motion</option>
+                <option value="detail">Detail</option>
+                <option value="text">Text</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Resolution preset</span>
+              <select id="video-resolution-preset">
+                <option value="" selected>Native display resolution</option>
+                <option value="3840x2160">4K (3840×2160)</option>
+                <option value="2560x1440">1440p (2560×1440)</option>
+                <option value="1920x1080">1080p (1920×1080)</option>
+                <option value="1600x900">900p (1600×900)</option>
+                <option value="1280x720">720p (1280×720)</option>
+                <option value="854x480">480p (854×480)</option>
+              </select>
+            </label>
+            <label class="field">
+              <span>Frame rate</span>
+              <input id="video-frame-rate" type="number" min="1" max="240" step="1" value="60" inputmode="numeric" />
+            </label>
+            <label class="field">
+              <span>Width override</span>
+              <input id="video-width" type="number" min="1" step="1" placeholder="Optional" inputmode="numeric" />
+            </label>
+            <label class="field">
+              <span>Height override</span>
+              <input id="video-height" type="number" min="1" step="1" placeholder="Optional" inputmode="numeric" />
+            </label>
+            <label class="field">
+              <span>Max bitrate (kbps)</span>
+              <input id="video-max-bitrate" type="number" min="1" step="50" value="12000" inputmode="numeric" />
+            </label>
+            <label class="field field-inline">
+              <input id="share-audio" type="checkbox" checked />
+              <span>Include shared system audio when the browser allows it</span>
+            </label>
+          </div>
+          <p class="status">Tune capture constraints and sender encoding before you start. Custom width and height override the preset.</p>
+        </section>
         <button id="start-session" class="button">Create session and capture screen + audio</button>
         <p id="host-status" class="status">Waiting to start.</p>
         <div id="session-card" class="panel panel-muted hidden">
@@ -31,6 +91,7 @@
           <p>Share this link with viewers:</p>
           <input id="viewer-link" type="text" readonly />
           <p id="codec-summary" class="status"></p>
+          <p id="stream-settings-summary" class="status"></p>
           <div id="input-bridge-card" class="hidden">
             <p class="status">Run this on the Linux machine that should receive viewer mouse and keyboard input:</p>
             <textarea id="input-bridge-command" rows="4" readonly></textarea>
