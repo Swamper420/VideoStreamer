@@ -36,21 +36,49 @@ const specialLinuxKeys = new Map([
   ['Tab', 'Tab'],
 ]);
 
-const specialWaylandKeys = new Map([
-  ['ArrowDown', 'down'],
-  ['ArrowLeft', 'left'],
-  ['ArrowRight', 'right'],
-  ['ArrowUp', 'up'],
-  ['Backspace', 'backspace'],
-  ['Delete', 'delete'],
-  ['End', 'end'],
-  ['Enter', 'return'],
-  ['Escape', 'escape'],
-  ['Home', 'home'],
-  ['PageDown', 'next'],
-  ['PageUp', 'prior'],
-  ['Space', 'space'],
-  ['Tab', 'tab'],
+const jsCodeToLinuxKeycode = new Map([
+  ['Escape', 1],
+  ['F1', 59], ['F2', 60], ['F3', 61], ['F4', 62],
+  ['F5', 63], ['F6', 64], ['F7', 65], ['F8', 66],
+  ['F9', 67], ['F10', 68], ['F11', 87], ['F12', 88],
+  ['Backquote', 41],
+  ['Digit1', 2], ['Digit2', 3], ['Digit3', 4], ['Digit4', 5],
+  ['Digit5', 6], ['Digit6', 7], ['Digit7', 8], ['Digit8', 9],
+  ['Digit9', 10], ['Digit0', 11],
+  ['Minus', 12], ['Equal', 13], ['Backspace', 14],
+  ['Tab', 15],
+  ['KeyQ', 16], ['KeyW', 17], ['KeyE', 18], ['KeyR', 19], ['KeyT', 20],
+  ['KeyY', 21], ['KeyU', 22], ['KeyI', 23], ['KeyO', 24], ['KeyP', 25],
+  ['BracketLeft', 26], ['BracketRight', 27], ['Backslash', 43],
+  ['CapsLock', 58],
+  ['KeyA', 30], ['KeyS', 31], ['KeyD', 32], ['KeyF', 33], ['KeyG', 34],
+  ['KeyH', 35], ['KeyJ', 36], ['KeyK', 37], ['KeyL', 38],
+  ['Semicolon', 39], ['Quote', 40], ['Enter', 28],
+  ['ShiftLeft', 42],
+  ['KeyZ', 44], ['KeyX', 45], ['KeyC', 46], ['KeyV', 47], ['KeyB', 48],
+  ['KeyN', 49], ['KeyM', 50],
+  ['Comma', 51], ['Period', 52], ['Slash', 53],
+  ['ShiftRight', 54],
+  ['ControlLeft', 29], ['MetaLeft', 125], ['AltLeft', 56],
+  ['Space', 57],
+  ['AltRight', 100], ['MetaRight', 126], ['ContextMenu', 127], ['ControlRight', 97],
+  ['Insert', 110], ['Delete', 111],
+  ['Home', 102], ['End', 107],
+  ['PageUp', 104], ['PageDown', 109],
+  ['ArrowUp', 103], ['ArrowDown', 108], ['ArrowLeft', 105], ['ArrowRight', 106],
+  ['NumLock', 69],
+  ['NumpadDivide', 98], ['NumpadMultiply', 55], ['NumpadSubtract', 74],
+  ['NumpadAdd', 78], ['NumpadEnter', 96], ['NumpadDecimal', 83],
+  ['Numpad0', 82], ['Numpad1', 79], ['Numpad2', 80], ['Numpad3', 81],
+  ['Numpad4', 75], ['Numpad5', 76], ['Numpad6', 77],
+  ['Numpad7', 71], ['Numpad8', 72], ['Numpad9', 73],
+  ['ScrollLock', 70], ['Pause', 119], ['PrintScreen', 99],
+]);
+
+const YDOTOOL_CLICK_CODES = new Map([
+  [0, '0xC0'],
+  [1, '0xC2'],
+  [2, '0xC1'],
 ]);
 
 const specialWindowsKeys = new Map([
@@ -150,22 +178,14 @@ function mapLinuxKey({ code, key }) {
   return '';
 }
 
-function mapWaylandKey({ code, key }) {
-  const namedKey = specialWaylandKeys.get(code);
-  if (namedKey) {
-    return { type: 'named', value: namedKey };
+function mapYdotoolKey({ code, key }) {
+  const keycode = jsCodeToLinuxKeycode.get(code);
+  if (keycode !== undefined) {
+    return { type: 'keycode', value: keycode };
   }
 
   if (key.length === 1) {
     return { type: 'text', value: key };
-  }
-
-  if (/^Key[A-Z]$/.test(code)) {
-    return { type: 'text', value: code.slice(-1).toLowerCase() };
-  }
-
-  if (/^Digit\d$/.test(code)) {
-    return { type: 'text', value: code.slice(-1) };
   }
 
   return null;
@@ -353,21 +373,26 @@ export function buildLinuxCommands(control) {
   return [];
 }
 
-export function buildWaylandCommands(control) {
+export function buildYdotoolCommands(control) {
   if (control.type === 'mousemove') {
     return [
       {
         file: 'ydotool',
-        args: ['mousemove', String(control.payload.x), String(control.payload.y)],
+        args: ['mousemove', '--absolute', '--', String(control.payload.x), String(control.payload.y)],
       },
     ];
   }
 
   if (control.type === 'click') {
+    const clickCode = YDOTOOL_CLICK_CODES.get(control.payload.button);
+    if (!clickCode) {
+      return [];
+    }
+
     return [
       {
         file: 'ydotool',
-        args: ['click', String(control.payload.button + 1)],
+        args: ['click', clickCode],
       },
     ];
   }
@@ -379,39 +404,40 @@ export function buildWaylandCommands(control) {
       return [];
     }
 
+    const hwheel = horizontalSteps === 0
+      ? 0
+      : control.payload.deltaX > 0 ? horizontalSteps : -horizontalSteps;
+    const wheel = verticalSteps === 0
+      ? 0
+      : control.payload.deltaY > 0 ? -verticalSteps : verticalSteps;
+
     return [
       {
-        file: 'wlrctl',
-        args: [
-          'pointer',
-          'scroll',
-          verticalSteps === 0
-            ? '0'
-            : control.payload.deltaY > 0
-              ? String(verticalSteps)
-              : String(-verticalSteps),
-          horizontalSteps === 0
-            ? '0'
-            : control.payload.deltaX > 0
-              ? String(horizontalSteps)
-              : String(-horizontalSteps),
-        ],
+        file: 'ydotool',
+        args: ['mousemove', '--wheel', '--', String(hwheel), String(wheel)],
       },
     ];
   }
 
   if (control.type === 'keydown') {
-    const key = mapWaylandKey(control.payload);
+    const key = mapYdotoolKey(control.payload);
     if (!key) {
       return [];
     }
 
+    if (key.type === 'keycode') {
+      return [
+        {
+          file: 'ydotool',
+          args: ['key', `${key.value}:1`, `${key.value}:0`],
+        },
+      ];
+    }
+
     return [
       {
-        file: 'wtype',
-        args: key.type === 'named'
-          ? ['-P', key.value, '-p', key.value]
-          : [key.value],
+        file: 'ydotool',
+        args: ['type', '--', key.value],
       },
     ];
   }
@@ -553,7 +579,7 @@ export function createInputController({
       const normalizedControl = normalizeInputAction(control);
       const commands = platform === 'linux'
         ? linuxBackend === 'wayland'
-          ? buildWaylandCommands(normalizedControl)
+          ? buildYdotoolCommands(normalizedControl)
           : buildLinuxCommands(normalizedControl)
         : platform === 'win32'
           ? buildWindowsCommands(normalizedControl)
@@ -575,7 +601,7 @@ export function createInputController({
         const message = error instanceof Error && 'code' in error && error.code === 'ENOENT'
           ? platform === 'linux'
             ? linuxBackend === 'wayland'
-              ? 'Host input control on Wayland requires ydotool, wtype, and wlrctl to be installed on the host machine.'
+              ? 'Host input control on Wayland requires ydotool and a running ydotoold daemon on the host machine.'
               : 'Host input control requires xdotool to be installed on the host machine.'
             : 'Host input control requires PowerShell to be available on the host machine.'
           : 'Unable to apply input on the host machine.';
